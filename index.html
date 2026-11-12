@@ -1,0 +1,2519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>像素疗愈小屋 · Pixel Cabin</title>
+<style>
+  :root{
+    --bg:#06080c;
+    --panel:rgba(15,19,26,.86);
+    --solid:#10141c;
+    --line:#252d3c;
+    --line2:#3a475d;
+    --ink:#e9e3d5;
+    --dim:#98a2b6;
+    --mute:#6a7385;
+    --amber:#f0b464;
+    --amber-hi:#ffd6a2;
+    --teal:#8fd0c4;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;margin:0;}
+  body{
+    background:radial-gradient(1400px 800px at 50% -18%, #151c28 0%, #0a0e15 52%, #05070a 100%);
+    color:var(--ink);
+    font-family:ui-monospace,"SFMono-Regular","Cascadia Mono",Consolas,"Courier New",monospace;
+    font-size:12px;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;pointer-events:none;opacity:.45;
+    background-image:
+      linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+    background-size:34px 34px;
+  }
+  #app{position:relative;height:100%;display:flex;flex-direction:column;}
+
+  /* ---------- 顶栏 ---------- */
+  .top{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    padding:9px 16px;border-bottom:1px solid #1a2130;
+    background:linear-gradient(#0f141c,#0a0e15);
+    z-index:4;
+  }
+  .brand{display:flex;align-items:center;gap:9px;}
+  .mark{
+    width:12px;height:12px;background:var(--amber);
+    box-shadow:0 0 0 2px #2a1d0c, 0 0 12px rgba(240,180,100,.45);
+  }
+  .ttl{letter-spacing:.14em;font-size:13px;color:#f2ecdf;}
+  .sub{font-size:9px;letter-spacing:.3em;color:var(--mute);padding-left:2px;}
+  .topRight{display:flex;align-items:center;gap:10px;}
+  .badge{
+    font-size:9px;letter-spacing:.18em;color:#f0cfa0;
+    border:1px solid #4a3a22;background:#1c1610;padding:3px 7px;
+  }
+  .hintTxt{font-size:10px;color:var(--mute);letter-spacing:.06em;}
+
+  /* ---------- 舞台 ---------- */
+  .stageWrap{flex:1;min-height:0;display:grid;place-items:center;padding:10px 14px 6px;}
+  .stage{
+    position:relative;aspect-ratio:16/9;
+    width:min(100%, calc((100vh - 196px) * 16 / 9));
+    max-width:1280px;
+    background:#070a0f;
+    border:1px solid #232c3b;
+    box-shadow:0 22px 60px rgba(0,0,0,.65), inset 0 0 0 1px rgba(255,255,255,.03);
+    overflow:hidden;
+  }
+  .stage canvas{position:absolute;display:block;image-rendering:pixelated;image-rendering:-moz-crisp-edges;}
+  #room{left:0;top:0;width:100%;height:100%;z-index:1;}
+  #outside{
+    left:31.875%;top:16.6667%;width:36.25%;height:55.5556%;z-index:0;
+  }
+  /* 扫描线质感 */
+  .stage::after{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:3;
+    background:repeating-linear-gradient(180deg,rgba(0,0,0,.16) 0 1px,transparent 1px 3px);
+    opacity:.5;
+  }
+  .veil{
+    position:absolute;inset:0;background:#05070b;opacity:0;pointer-events:none;z-index:4;
+  }
+
+  /* ---------- 场景 / 时刻 ---------- */
+  .hud{
+    position:absolute;left:50%;top:9px;transform:translateX(-50%);
+    display:flex;flex-direction:column;gap:6px;padding:7px 9px;
+    background:rgba(8,11,17,.74);
+    border:1px solid rgba(255,255,255,.07);
+    box-shadow:0 10px 26px rgba(0,0,0,.45);
+    z-index:5;backdrop-filter:blur(7px);
+  }
+  .hud .row{display:flex;align-items:center;gap:8px;}
+  .hud .lab{
+    width:26px;font-size:9px;letter-spacing:.16em;color:var(--mute);
+  }
+  .chips{display:flex;gap:4px;}
+  .chip{
+    position:relative;font:inherit;font-size:11px;letter-spacing:.1em;
+    color:#b6c0d2;background:linear-gradient(#1b2231,#131a25);
+    border:1px solid #2d3749;padding:5px 11px;cursor:pointer;border-radius:0;
+    box-shadow:0 1px 0 #05070a, inset 0 1px 0 rgba(255,255,255,.05);
+    transition:color .16s,border-color .16s,background .16s,transform .07s;
+  }
+  .chip:hover{
+    color:#f2ebdb;border-color:#4d5d77;
+    background:linear-gradient(#232d3f,#182130);
+  }
+  .chip:active{transform:translateY(1px);box-shadow:none;}
+  .chip[aria-pressed="true"]{
+    background:linear-gradient(#ffdcae,#e2a559);color:#20150a;
+    border-color:#ffe6c2;
+    box-shadow:0 0 0 1px #120b04, 0 0 14px rgba(240,180,100,.22),
+               inset 0 1px 0 rgba(255,255,255,.55);
+  }
+  .chips.time .chip[aria-pressed="true"]{
+    background:linear-gradient(#c2ece2,#79bfb2);color:#0a1b18;
+    border-color:#d8f6ee;
+    box-shadow:0 0 0 1px #04100e, 0 0 14px rgba(143,208,196,.2),
+               inset 0 1px 0 rgba(255,255,255,.5);
+  }
+
+  .phTag{
+    position:absolute;left:10px;bottom:9px;z-index:5;
+    font-size:9px;letter-spacing:.1em;color:#b7a999;
+    background:rgba(8,11,17,.72);border:1px solid rgba(255,255,255,.08);
+    padding:4px 8px;backdrop-filter:blur(4px);
+  }
+  .startHint{
+    position:absolute;left:50%;bottom:14px;transform:translateX(-50%);
+    z-index:6;font-size:11px;letter-spacing:.1em;color:#ffd9a8;
+    background:rgba(20,14,7,.86);border:1px solid #5b4527;
+    padding:7px 14px;box-shadow:0 8px 22px rgba(0,0,0,.5);
+    transition:opacity .35s;
+  }
+  .startHint.hide{opacity:0;pointer-events:none;}
+
+  /* 可点区域 */
+  .hit{
+    position:absolute;z-index:5;background:transparent;border:0;padding:0;cursor:pointer;
+    outline:none;
+  }
+  .hit::after{
+    content:attr(data-label);position:absolute;left:50%;bottom:100%;
+    transform:translate(-50%,-4px);white-space:nowrap;
+    font-size:9px;letter-spacing:.12em;color:#ffe6c2;
+    background:rgba(9,12,18,.9);border:1px solid #4a3a22;padding:2px 6px;
+    opacity:0;transition:opacity .16s;pointer-events:none;
+  }
+  .hit:hover::after{opacity:1;}
+  .hit:hover{box-shadow:inset 0 0 0 1px rgba(255,214,162,.5);}
+
+  /* 猫的气泡 */
+  .catSay{
+    position:absolute;z-index:6;transform:translate(-50%,-100%);
+    background:rgba(11,15,21,.94);border:1px solid #5b4527;color:#ffe6c2;
+    font-size:10px;letter-spacing:.08em;padding:4px 9px;white-space:nowrap;
+    opacity:0;transition:opacity .18s, transform .18s;pointer-events:none;
+    box-shadow:0 6px 16px rgba(0,0,0,.45);
+  }
+  .catSay.show{opacity:1;transform:translate(-50%,-116%);}
+  .catSay::after{
+    content:"";position:absolute;left:50%;bottom:-4px;width:5px;height:5px;
+    background:rgba(11,15,21,.94);border-right:1px solid #5b4527;border-bottom:1px solid #5b4527;
+    transform:translateX(-50%) rotate(45deg);
+  }
+
+  /* ---------- 底部控制条 ---------- */
+  .bar{
+    display:flex;align-items:center;gap:16px;
+    padding:9px 16px;border-top:1px solid #1a2130;
+    background:linear-gradient(#0c1018,#090c12);
+    z-index:4;
+  }
+  /* ---------- 按钮：统一的"像素硬阴影"体系 ---------- */
+  .btnBase{
+    display:inline-flex;align-items:center;gap:8px;
+    font:inherit;border-radius:0;cursor:pointer;
+    transition:transform .07s, box-shadow .12s, filter .15s, background .15s;
+  }
+  .play{
+    position:relative;display:flex;align-items:center;gap:9px;
+    padding:9px 18px 9px 15px;font:inherit;font-size:12px;letter-spacing:.16em;
+    color:#20150a;background:linear-gradient(#ffdcaa,#e7a759);
+    border:1px solid #ffe5c1;cursor:pointer;border-radius:0;
+    box-shadow:0 2px 0 #7b4f1d, 0 7px 20px rgba(230,167,92,.20),
+               inset 0 1px 0 rgba(255,255,255,.5);
+    transition:transform .07s, box-shadow .12s, filter .15s;
+  }
+  .play:hover{filter:brightness(1.05);}
+  .play:active{transform:translateY(2px);box-shadow:0 0 0 #7b4f1d, 0 3px 10px rgba(230,167,92,.18);}
+  .play.on{
+    background:linear-gradient(#2e384c,#1d2430);color:#eae3d4;border-color:#4a5772;
+    box-shadow:0 2px 0 #05070a, inset 0 1px 0 rgba(255,255,255,.07);
+  }
+  .play svg{display:block;fill:currentColor;}
+  .play .ic-pause{display:none;}
+  .play.on .ic-play{display:none;}
+  .play.on .ic-pause{display:block;}
+  .master{display:flex;align-items:center;gap:9px;}
+  .mV{font-size:10px;letter-spacing:.14em;color:var(--mute);}
+  .mNum{font-size:10px;color:var(--dim);min-width:22px;text-align:right;}
+  .ghost{
+    display:inline-flex;align-items:center;gap:7px;
+    font:inherit;font-size:11px;letter-spacing:.12em;color:#c3cbdb;
+    background:linear-gradient(#182031,#111722);
+    border:1px solid #2e3949;padding:8px 13px;cursor:pointer;border-radius:0;
+    box-shadow:0 2px 0 #05070a, inset 0 1px 0 rgba(255,255,255,.05);
+    transition:background .15s,border-color .15s,transform .07s,box-shadow .12s;
+  }
+  .ghost:hover{background:linear-gradient(#1f2939,#141b27);border-color:#48576b;color:#eee7d9;}
+  .ghost:active{transform:translateY(2px);box-shadow:0 0 0 #05070a;}
+  .ghost b{color:var(--amber-hi);font-weight:400;}
+  .status{font-size:10px;letter-spacing:.08em;color:var(--mute);margin-left:auto;}
+
+  /* ---------- 滑块（自定义，不用浏览器默认长相） ---------- */
+  input[type=range]{
+    -webkit-appearance:none;appearance:none;background:transparent;
+    height:18px;margin:0;cursor:pointer;--p:50%;
+  }
+  input[type=range]::-webkit-slider-runnable-track{
+    height:6px;border:1px solid #2a3345;
+    background:linear-gradient(90deg,#c8a05d 0 var(--p),#161d29 var(--p) 100%);
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.55);
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:9px;height:16px;margin-top:-6px;
+    background:linear-gradient(#f4e9d4,#c9b99c);
+    border:1px solid #05070a;box-shadow:0 0 0 1px #61708a;
+  }
+  input[type=range]::-moz-range-track{
+    height:6px;border:1px solid #2a3345;
+    background:linear-gradient(90deg,#c8a05d 0 var(--p),#161d29 var(--p) 100%);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:9px;height:16px;border-radius:0;
+    background:linear-gradient(#f4e9d4,#c9b99c);
+    border:1px solid #05070a;box-shadow:0 0 0 1px #61708a;
+  }
+  input[type=range]:focus-visible{outline:1px dashed rgba(240,180,100,.7);outline-offset:3px;}
+  #masterVol{width:132px;}
+
+  /* 自定义复选框（不用浏览器默认长相） */
+  .keep input[type=checkbox]{
+    -webkit-appearance:none;appearance:none;
+    width:15px;height:15px;margin:0;padding:0;flex:none;cursor:pointer;
+    background:linear-gradient(#0c1119,#121a24);
+    border:1px solid #3d4a5d;border-radius:0;
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.6);
+    position:relative;
+  }
+  .keep input[type=checkbox]:checked{
+    background:linear-gradient(#20362f,#172a25);border-color:#7cc4b6;
+    box-shadow:inset 0 1px 0 rgba(0,0,0,.4), 0 0 10px rgba(124,196,182,.2);
+  }
+  .keep input[type=checkbox]:checked::after{
+    content:"";position:absolute;left:4px;top:1px;width:4px;height:8px;
+    border:2px solid #a6e6d6;border-top:0;border-left:0;
+    transform:rotate(41deg);
+  }
+  .keep input[type=checkbox]:focus-visible{outline:1px dashed rgba(143,208,196,.8);outline-offset:2px;}
+
+  /* ---------- 声音抽屉 ---------- */
+  .drawer{
+    position:absolute;top:0;right:0;bottom:0;width:352px;max-width:92vw;z-index:8;
+    background:linear-gradient(#0d121a,#080b11);
+    border-left:1px solid #222b3a;
+    display:flex;flex-direction:column;
+    transform:translateX(103%);
+    transition:transform .3s cubic-bezier(.3,.72,.2,1);
+    box-shadow:-24px 0 50px rgba(0,0,0,.55);
+  }
+  .drawer.open{transform:none;}
+  .dHead{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:13px 15px;border-bottom:1px solid #1b2230;
+  }
+  .dTitle{font-size:12px;letter-spacing:.16em;color:#efe8d8;}
+  .dSub{font-size:9px;letter-spacing:.08em;color:var(--mute);margin-left:8px;}
+  .x{
+    width:24px;height:24px;background:#141a25;border:1px solid #2b3446;
+    color:#aab4c6;font:inherit;font-size:14px;line-height:1;cursor:pointer;
+  }
+  .x:hover{border-color:#4a5a74;color:#eee;}
+  .dTools{display:flex;gap:6px;padding:9px 12px;border-bottom:1px solid #161d28;}
+  .mini{
+    flex:1;font:inherit;font-size:10px;letter-spacing:.06em;color:#a9b3c5;
+    background:#111722;border:1px solid #262f40;padding:6px 4px;cursor:pointer;
+  }
+  .mini:hover{border-color:#465468;color:#e6dfd0;}
+  .dList{flex:1;overflow-y:auto;overscroll-behavior:contain;}
+  .dList::-webkit-scrollbar{width:9px;}
+  .dList::-webkit-scrollbar-track{background:#080b11;}
+  .dList::-webkit-scrollbar-thumb{background:#242d3c;border:1px solid #080b11;}
+  .dList::-webkit-scrollbar-thumb:hover{background:#38455b;}
+
+  .snd{
+    display:grid;grid-template-columns:32px 1fr 82px 26px;
+    gap:9px;align-items:center;padding:8px 12px;
+    border-bottom:1px solid #141b25;
+  }
+  .snd:hover{background:rgba(255,255,255,.022);}
+  .snd.playing .nm{color:#ffe3bb;}
+  .sw{
+    position:relative;width:32px;height:15px;padding:0;cursor:pointer;
+    background:#0d121b;border:1px solid #2b3446;
+    transition:background .16s,border-color .16s;
+  }
+  .sw i{
+    position:absolute;top:1px;left:1px;width:12px;height:11px;
+    background:#556077;transition:left .16s,background .16s,box-shadow .16s;
+  }
+  .sw[aria-pressed="true"]{background:#241b0e;border-color:#8a6a34;}
+  .sw[aria-pressed="true"] i{left:17px;background:var(--amber-hi);box-shadow:0 0 9px rgba(240,180,100,.65);}
+  .meta{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .nm{font-size:11px;color:#dcd5c6;letter-spacing:.04em;}
+  .tg{font-size:9px;color:#5f6a7d;letter-spacing:.06em;}
+  .vol{width:82px;}
+  .vv{font-size:9px;color:#7d8798;text-align:right;}
+  .dFoot{
+    padding:10px 14px;border-top:1px solid #161d28;
+    font-size:9.5px;line-height:1.6;color:#5f6a7d;letter-spacing:.03em;
+  }
+
+  /* 音条跳动 */
+  .eq{display:inline-flex;align-items:flex-end;gap:1px;height:7px;margin-left:5px;vertical-align:middle;}
+  .eq span{width:2px;height:2px;background:#f0b464;opacity:.35;}
+  .snd.playing .eq span{animation:eq .9s infinite ease-in-out;}
+  .snd.playing .eq span:nth-child(2){animation-delay:.18s;}
+  .snd.playing .eq span:nth-child(3){animation-delay:.36s;}
+  @keyframes eq{0%,100%{height:2px;opacity:.5}50%{height:7px;opacity:1}}
+
+  /* ---------- 导入照片按钮（显眼，不是隐形按钮） ---------- */
+  .import{
+    display:flex;align-items:center;gap:8px;
+    padding:9px 16px;font:inherit;font-size:12px;letter-spacing:.12em;
+    color:#08191a;background:linear-gradient(#c8eee4,#7cc4b6);
+    border:1px solid #dcf7f0;cursor:pointer;border-radius:0;
+    box-shadow:0 2px 0 #2d5c55, 0 7px 20px rgba(124,196,182,.22),
+               inset 0 1px 0 rgba(255,255,255,.55);
+    transition:transform .07s, box-shadow .12s, filter .15s;
+  }
+  .import:hover{filter:brightness(1.06);}
+  .import:active{transform:translateY(2px);box-shadow:0 0 0 #2d5c55;}
+  .import svg{display:block;stroke:currentColor;fill:none;}
+
+  /* ---------- 导入照片弹窗 ---------- */
+  .modalWrap{position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;padding:22px;}
+  .modalWrap[hidden]{display:none;}
+  .modalBg{position:absolute;inset:0;background:rgba(4,6,10,.82);backdrop-filter:blur(6px);}
+  .modal{
+    position:relative;display:flex;flex-direction:column;
+    width:min(1140px,96vw);max-height:92vh;
+    background:linear-gradient(#0e131b,#090d14);
+    border:1px solid #2b3446;
+    box-shadow:0 30px 90px rgba(0,0,0,.75);
+  }
+  .mHead{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:12px 16px;border-bottom:1px solid #1b2230;flex:none;
+  }
+  .mTitle{font-size:13px;letter-spacing:.14em;color:#f2ecdf;}
+  .mSub{font-size:9.5px;letter-spacing:.08em;color:var(--mute);margin-left:10px;}
+  .mBody{display:grid;grid-template-columns:1.02fr .98fr;min-height:0;flex:1;}
+  .mLeft{padding:14px;border-right:1px solid #1b2230;display:flex;flex-direction:column;gap:10px;min-height:0;}
+  .drop{
+    position:relative;flex:1;min-height:250px;
+    background:
+      linear-gradient(45deg,#0a0e15 25%,transparent 25%,transparent 75%,#0a0e15 75%) 0 0/16px 16px,
+      linear-gradient(45deg,#0a0e15 25%,#080b11 25%,#080b11 75%,#0a0e15 75%) 8px 8px/16px 16px;
+    border:1px dashed #3a465c;display:grid;place-items:center;overflow:hidden;
+    transition:border-color .16s,background-color .16s;
+  }
+  .drop.over{border-color:var(--teal);box-shadow:inset 0 0 0 1px rgba(143,208,196,.35);}
+  .drop canvas{
+    width:100%;height:100%;object-fit:contain;display:none;
+    image-rendering:pixelated;
+  }
+  .drop.has canvas{display:block;}
+  .dropHint{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;padding:22px;text-align:center;pointer-events:none;}
+  .drop.has .dropHint{display:none;}
+  .dzIcon{
+    width:34px;height:26px;border:2px solid #55637a;position:relative;margin-bottom:4px;
+  }
+  .dzIcon::before{content:"";position:absolute;left:5px;top:5px;width:7px;height:7px;border:2px solid #55637a;}
+  .dzIcon::after{content:"";position:absolute;left:4px;bottom:4px;width:22px;height:2px;background:#55637a;}
+  .dzT1{font-size:12px;letter-spacing:.1em;color:#c9d2e2;}
+  .dzT2{font-size:10px;color:#8b95a8;line-height:1.6;}
+  .dzT2 u{color:var(--teal);text-decoration:none;border-bottom:1px solid rgba(143,208,196,.5);cursor:pointer;pointer-events:auto;}
+  .dzT3{font-size:9.5px;color:#5f6a7d;letter-spacing:.04em;margin-top:3px;}
+  .mLeftBar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .fileInfo{font-size:9.5px;color:#6d7688;letter-spacing:.04em;margin-left:auto;}
+
+  .mRight{padding:14px;overflow-y:auto;display:flex;flex-direction:column;gap:13px;min-height:0;}
+  .mRight::-webkit-scrollbar{width:9px;}
+  .mRight::-webkit-scrollbar-track{background:#080b11;}
+  .mRight::-webkit-scrollbar-thumb{background:#242d3c;border:1px solid #080b11;}
+
+  .secH{font-size:10px;letter-spacing:.16em;color:var(--mute);margin-bottom:8px;}
+  .pm{margin-bottom:11px;}
+  .pm:last-child{margin-bottom:0;}
+  .pmTop{display:flex;align-items:baseline;justify-content:space-between;font-size:11px;color:#dcd5c6;}
+  .pmVal{font-size:10px;color:var(--amber-hi);letter-spacing:.06em;}
+  .pm input[type=range]{width:100%;margin:5px 0 2px;display:block;}
+  .pmHint{font-size:9.5px;line-height:1.65;color:#69738a;letter-spacing:.02em;}
+
+  .ana{border:1px solid #23303f;background:#0b1018;padding:11px 12px;}
+  .anaTags{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 9px;}
+  .tag{
+    font-size:10px;letter-spacing:.08em;padding:3px 9px;
+    border:1px solid #3f5064;color:#d3e4dd;background:#101a22;
+  }
+  .anaList{margin:0;padding-left:14px;font-size:10px;line-height:1.85;color:#8e99ab;}
+  .anaWarn{
+    font-size:9.5px;line-height:1.7;color:#e3b06a;margin-top:9px;
+    border-top:1px dashed #3b3020;padding-top:8px;
+  }
+  .anaEmpty{font-size:10.5px;line-height:1.7;color:#6d7688;}
+  .note{font-size:9.5px;line-height:1.7;color:#7d8798;letter-spacing:.02em;}
+  .note b{color:var(--teal);font-weight:400;}
+
+  .recRow{display:flex;gap:8px;font-size:10px;line-height:1.65;padding:6px 0;border-bottom:1px solid #141b25;}
+  .recRow:last-child{border-bottom:0;}
+  .recName{min-width:66px;color:#e6dccb;letter-spacing:.04em;}
+  .recWhy{color:#7d8798;flex:1;}
+
+  .mFoot{
+    display:flex;align-items:center;gap:12px;flex:none;
+    padding:12px 16px;border-top:1px solid #1b2230;background:#090d14;
+  }
+  .keep{display:flex;align-items:center;gap:7px;font-size:10px;color:#96a1b3;cursor:pointer;letter-spacing:.03em;}
+  .keep input{accent-color:#7cc4b6;width:13px;height:13px;cursor:pointer;}
+  .mFoot .grow{flex:1;}
+  .apply{
+    padding:10px 24px;font:inherit;font-size:12px;letter-spacing:.14em;
+    color:#20150a;background:linear-gradient(#ffdcaa,#e7a759);
+    border:1px solid #ffe5c1;cursor:pointer;border-radius:0;
+    box-shadow:0 2px 0 #7b4f1d, 0 7px 20px rgba(230,167,92,.2),
+               inset 0 1px 0 rgba(255,255,255,.5);
+    transition:transform .07s, box-shadow .12s, filter .15s;
+  }
+  .apply:hover{filter:brightness(1.05);}
+  .apply:active{transform:translateY(2px);box-shadow:0 0 0 #7b4f1d;}
+  .apply:disabled{
+    opacity:.4;cursor:not-allowed;filter:none;transform:none;
+    box-shadow:0 2px 0 #3a2a16;
+  }
+
+  .toast{
+    position:fixed;left:50%;bottom:78px;z-index:40;
+    transform:translateX(-50%) translateY(8px);
+    background:rgba(11,16,23,.96);border:1px solid #3c4a5f;
+    color:#eae4d6;font-size:11px;letter-spacing:.05em;
+    padding:9px 16px;max-width:82vw;text-align:center;
+    opacity:0;transition:opacity .28s,transform .28s;pointer-events:none;
+    box-shadow:0 12px 34px rgba(0,0,0,.55);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+  @media (max-width:900px){
+    .mBody{grid-template-columns:1fr;}
+    .mLeft{border-right:0;border-bottom:1px solid #1b2230;}
+    .drop{min-height:200px;}
+    .mRight{max-height:34vh;}
+  }
+
+  @media (max-width:820px){
+    .hud{transform:translateX(-50%) scale(.92);transform-origin:top center;}
+    .bar{gap:10px;padding:8px 10px;flex-wrap:wrap;}
+    .status{width:100%;margin-left:0;order:9;}
+    .hintTxt{display:none;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="top">
+    <div class="brand">
+      <span class="mark"></span>
+      <span class="ttl">像素疗愈小屋</span>
+      <span class="sub">PIXEL CABIN</span>
+    </div>
+    <div class="topRight">
+      <span class="badge">占位场景</span>
+      <span class="hintTxt">台灯 · 壁炉 · 猫 都能点</span>
+    </div>
+  </header>
+
+  <main class="stageWrap">
+    <div class="stage" id="stage">
+      <!-- ===== 窗外层：以后要换成你的照片，只替换这一层即可（换成 <img> 也不会影响房间层） ===== -->
+      <canvas id="outside" width="116" height="100"></canvas>
+      <!-- ===== 房间层：床 / 壁炉 / 台灯 / 窗框，固定不动 ===== -->
+      <canvas id="room" width="320" height="180"></canvas>
+
+      <div class="veil" id="veil"></div>
+
+      <div class="hud">
+        <div class="row"><span class="lab">场景</span><div class="chips" id="sceneChips"></div></div>
+        <div class="row"><span class="lab">时刻</span><div class="chips time" id="timeChips"></div></div>
+      </div>
+
+      <div class="phTag">这是占位场景 · 代码绘制，窗外画面等你换成照片</div>
+      <div class="startHint" id="startHint">点「播放」开始 · 建议戴耳机</div>
+
+      <button class="hit" id="hitLamp" data-label="开关台灯" aria-label="开关台灯"></button>
+      <button class="hit" id="hitFire" data-label="点燃 / 熄灭壁炉" aria-label="开关壁炉"></button>
+      <button class="hit" id="hitCat" data-label="摸摸猫" aria-label="摸摸猫"></button>
+      <div class="catSay" id="catSay"></div>
+    </div>
+  </main>
+
+  <footer class="bar">
+    <button id="playBtn" class="play">
+      <svg class="ic-play" viewBox="0 0 10 10" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 1h2v8H2zM4 2h2v6H4zM6 3h2v4H6z"/></svg>
+      <svg class="ic-pause" viewBox="0 0 10 10" width="10" height="10" shape-rendering="crispEdges" aria-hidden="true"><path d="M2 1h2v8H2zM6 1h2v8H6z"/></svg>
+      <span id="playTxt">播放</span>
+    </button>
+
+    <div class="master">
+      <span class="mV">主音量</span>
+      <input type="range" id="masterVol" min="0" max="100" value="80" aria-label="主音量">
+      <span class="mNum" id="masterNum">80</span>
+    </div>
+
+    <button id="importBtn" class="import">
+      <svg viewBox="0 0 12 11" width="12" height="11" shape-rendering="crispEdges" aria-hidden="true">
+        <path d="M1 3h3l1-1h2l1 1h3v7H1z" stroke-width="1"/>
+        <path d="M3 8l2-2 2 2z" fill="currentColor" stroke="none"/>
+        <rect x="8" y="4" width="2" height="2" fill="currentColor" stroke="none"/>
+      </svg>导入照片</button>
+    <button id="drawerBtn" class="ghost">声音 <b id="onCount">0</b>/16</button>
+    <div class="status" id="status">待启动 · 点「播放」</div>
+  </footer>
+
+  <aside class="drawer" id="drawer">
+    <div class="dHead">
+      <div>
+        <span class="dTitle">声音</span>
+        <span class="dSub">13 段录音 + 3 段合成</span>
+      </div>
+      <button class="x" id="drawerClose" aria-label="关闭">×</button>
+    </div>
+    <div class="dTools">
+      <button class="mini" id="btnSceneDefault">恢复本场景默认</button>
+      <button class="mini" id="btnAllOff">全部关闭</button>
+    </div>
+    <div class="dList" id="soundList"></div>
+    <div class="dFoot">
+      每条都能单独开关、单独调音量。关掉某条声音，画面里对应的天气 / 火光 / 浪也会停。
+    </div>
+  </aside>
+
+  <!-- ===== 导入照片弹窗 ===== -->
+  <div class="modalWrap" id="photoModal" hidden>
+    <div class="modalBg" id="modalBg"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-label="导入照片">
+      <header class="mHead">
+        <div>
+          <span class="mTitle">导入照片 · 变成窗外风景</span>
+          <span class="mSub">全部在你电脑本地处理，不上传</span>
+        </div>
+        <button class="x" id="modalClose" aria-label="关闭">×</button>
+      </header>
+
+      <div class="mBody">
+        <div class="mLeft">
+          <div class="drop" id="dropZone">
+            <canvas id="previewCanvas" width="348" height="300"></canvas>
+            <div class="dropHint">
+              <div class="dzIcon"></div>
+              <div class="dzT1">把照片拖进这里</div>
+              <div class="dzT2">或 <u id="pickInline">点击选择文件</u> · 也可以直接 Ctrl+V 粘贴</div>
+              <div class="dzT3">照片不会离开这台电脑</div>
+            </div>
+          </div>
+          <div class="mLeftBar">
+            <button class="ghost" id="pickBtn">选择照片</button>
+            <button class="ghost" id="pasteBtn">从剪贴板粘贴</button>
+            <span class="fileInfo" id="fileInfo">还没有照片</span>
+          </div>
+        </div>
+
+        <div class="mRight">
+          <div>
+            <div class="secH">画面参数（右边拖动，左边实时变）</div>
+            <div id="params"></div>
+            <div class="note" id="timeNote"></div>
+          </div>
+
+          <div class="ana" id="analysis"></div>
+
+          <div>
+            <div class="secH">推荐声音（只是建议，随时能改）</div>
+            <div id="recs"></div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="mFoot">
+        <label class="keep"><input type="checkbox" id="keepSounds">不采用推荐，保持我现在的声音</label>
+        <div class="grow"></div>
+        <button class="ghost" id="cancelBtn">取消</button>
+        <button class="apply" id="applyBtn" disabled>应用为场景</button>
+      </footer>
+    </div>
+  </div>
+
+  <input type="file" id="fileInput" accept="image/*" hidden>
+  <div class="toast" id="toast"></div>
+
+  <!-- 音频源：全部用 audio 标签读本地文件，不用 fetch，双击即可播放 -->
+  <div id="rack" hidden>
+    <audio id="a-light-rain"     src="assets/audio/light-rain.mp3"     loop preload="auto"></audio>
+    <audio id="a-rain-on-window" src="assets/audio/rain-on-window.mp3" loop preload="auto"></audio>
+    <audio id="a-heavy-rain"     src="assets/audio/heavy-rain.mp3"     loop preload="auto"></audio>
+    <audio id="a-waves"          src="assets/audio/waves.mp3"          loop preload="auto"></audio>
+    <audio id="a-river"          src="assets/audio/river.mp3"          loop preload="auto"></audio>
+    <audio id="a-waterfall"      src="assets/audio/waterfall.mp3"      loop preload="auto"></audio>
+    <audio id="a-droplets"       src="assets/audio/droplets.mp3"       loop preload="auto"></audio>
+    <audio id="a-wind"           src="assets/audio/wind.mp3"           loop preload="auto"></audio>
+    <audio id="a-wind-in-trees"  src="assets/audio/wind-in-trees.mp3"  loop preload="auto"></audio>
+    <audio id="a-wind-chimes"    src="assets/audio/wind-chimes.mp3"    loop preload="auto"></audio>
+    <audio id="a-birds"          src="assets/audio/birds.mp3"          loop preload="auto"></audio>
+    <audio id="a-crickets"       src="assets/audio/crickets.mp3"       loop preload="auto"></audio>
+    <audio id="a-campfire"       src="assets/audio/campfire.mp3"       loop preload="auto"></audio>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* =========================================================
+     1. 数据
+     ========================================================= */
+  var W = 320, H = 180;
+  var WIN = { x0:96, y0:24, x1:224, y1:136 };     // 窗框外沿
+  var OPEN = { x0:102, y0:30, x1:218, y1:130 };   // 玻璃洞口（116 x 100）
+
+  var SOUNDS = [
+    { id:'light-rain',     name:'细雨',       file:'light-rain.mp3',     tag:'雨 · mp3', vol:.62 },
+    { id:'rain-on-window', name:'雨打窗',     file:'rain-on-window.mp3', tag:'雨 · mp3', vol:.55 },
+    { id:'heavy-rain',     name:'大雨',       file:'heavy-rain.mp3',     tag:'雨 · mp3', vol:.50 },
+    { id:'waves',          name:'海浪',       file:'waves.mp3',          tag:'水 · mp3', vol:.60 },
+    { id:'river',          name:'溪流',       file:'river.mp3',          tag:'水 · mp3', vol:.48 },
+    { id:'waterfall',      name:'瀑布',       file:'waterfall.mp3',      tag:'水 · mp3', vol:.42 },
+    { id:'droplets',       name:'水滴',       file:'droplets.mp3',       tag:'水 · mp3', vol:.46 },
+    { id:'wind',           name:'风声',       file:'wind.mp3',           tag:'风 · mp3', vol:.44 },
+    { id:'wind-in-trees',  name:'林间风',     file:'wind-in-trees.mp3',  tag:'风 · mp3', vol:.50 },
+    { id:'wind-chimes',    name:'风铃',       file:'wind-chimes.mp3',    tag:'物 · mp3', vol:.42 },
+    { id:'birds',          name:'鸟鸣',       file:'birds.mp3',          tag:'生 · mp3', vol:.40 },
+    { id:'crickets',       name:'夏夜虫鸣',   file:'crickets.mp3',       tag:'生 · mp3', vol:.40 },
+    { id:'campfire',       name:'篝火',       file:'campfire.mp3',       tag:'火 · mp3', vol:.55 },
+    { id:'white-noise',    name:'白噪音',     synth:'white',             tag:'噪 · 合成', vol:.34 },
+    { id:'pink-noise',     name:'粉红噪音',   synth:'pink',              tag:'噪 · 合成', vol:.40 },
+    { id:'brown-noise',    name:'棕噪音',     synth:'brown',             tag:'噪 · 合成', vol:.42 }
+  ];
+
+  var SCENES = {
+    rain:   { name:'雨夜', sounds:['light-rain','rain-on-window','wind','droplets'],        fire:false },
+    sea:    { name:'海边', sounds:['waves','wind','birds','pink-noise'],                    fire:false },
+    forest: { name:'森林', sounds:['birds','crickets','wind-in-trees','river'],             fire:false },
+    hearth: { name:'炉边', sounds:['campfire','wind','wind-chimes','crickets'],             fire:true  }
+  };
+
+  var TIMES = {
+    dawn: {
+      name:'晨',
+      sky:[[0,'#1b2545'],[.38,'#43436f'],[.62,'#96687f'],[.82,'#d29579'],[1,'#f2c39a']],
+      sun:{ x:76, y:62, r:6, c:'#ffe6ba', glow:'#ffb884' },
+      star:0, cloud:.5, cloudC:'#f0c4a6',
+      tint:'#b3a1a8', light:'#f6c79c', ground:'#2a2434', far:'#3b3350'
+    },
+    day: {
+      name:'昼',
+      sky:[[0,'#2c679b'],[.4,'#4d90bb'],[.72,'#89bfd1'],[1,'#c6e0da']],
+      sun:{ x:74, y:20, r:5, c:'#fffbdc', glow:'#ffe9a2' },
+      star:0, cloud:.9, cloudC:'#eef6f7',
+      tint:'#e6e3d6', light:'#dbe9f1', ground:'#2b3a2e', far:'#3a544b'
+    },
+    dusk: {
+      name:'昏',
+      sky:[[0,'#151430'],[.4,'#452c4e'],[.66,'#9d4740'],[.86,'#db7845'],[1,'#eda25e']],
+      sun:{ x:24, y:64, r:6, c:'#ffb678', glow:'#ff8f4d' },
+      star:.08, cloud:.55, cloudC:'#e29a86',
+      tint:'#b4876f', light:'#eeae86', ground:'#241d2a', far:'#3a2b3c'
+    },
+    night: {
+      name:'夜',
+      sky:[[0,'#050811'],[.42,'#08101f'],[.74,'#0d1729'],[1,'#141f36']],
+      moon:{ x:80, y:24, r:5, c:'#e9eeff', glow:'#9db2e6' },
+      star:1, cloud:.3, cloudC:'#1b2740',
+      tint:'#77839e', light:'#8fa8d8', ground:'#0e1420', far:'#162033'
+    }
+  };
+
+  var state = {
+    scene:'rain', time:'night', started:false,
+    master:.8, lamp:true, fire:false,
+    tracks:{}
+  };
+  SOUNDS.forEach(function(s){
+    state.tracks[s.id] = { on:false, vol:s.vol, cur:0, vg:0 };
+  });
+
+  /* =========================================================
+     2. 小工具
+     ========================================================= */
+  function $(s){ return document.querySelector(s); }
+  function clamp(v,a,b){ return v<a?a:(v>b?b:v); }
+  function hash(n){ var x = Math.sin(n*127.1+311.7)*43758.5453; return x-Math.floor(x); }
+  function hex(c){
+    return [parseInt(c.slice(1,3),16), parseInt(c.slice(3,5),16), parseInt(c.slice(5,7),16)];
+  }
+  function mix(a,b,u){
+    var A=hex(a), B=hex(b);
+    return 'rgb('+Math.round(A[0]+(B[0]-A[0])*u)+','+
+                  Math.round(A[1]+(B[1]-A[1])*u)+','+
+                  Math.round(A[2]+(B[2]-A[2])*u)+')';
+  }
+  function rgba(c,a){ var A=hex(c); return 'rgba('+A[0]+','+A[1]+','+A[2]+','+a+')'; }
+  function vg(id){ var tr=state.tracks[id]; return tr ? tr.vg : 0; }
+
+  function tryPlay(el){
+    if(!el.paused || el._p) return;
+    el._p = true;
+    var done = function(){ el._p = false; };
+    try{
+      var pr = el.play();
+      if(pr && pr.then){ pr.then(done).catch(done); } else { done(); }
+    }catch(e){ el._p = false; }
+  }
+
+  function sceneHorizon(){
+    return { rain:70, sea:54, forest:74, hearth:72 }[state.scene] || 68;
+  }
+
+  /* =========================================================
+     3. 音频
+     ========================================================= */
+  var els = {};
+  SOUNDS.forEach(function(s){
+    if(s.file){
+      var el = document.getElementById('a-'+s.id);
+      if(el){ el.volume = 0; el.loop = true; els[s.id] = el; }
+    }
+  });
+
+  var noiseCtx = null, noiseNodes = {};
+
+  function makeNoiseBuffer(ac, kind){
+    var dur = 6, len = Math.floor(ac.sampleRate*dur);
+    var buf = ac.createBuffer(1, len, ac.sampleRate);
+    var d = buf.getChannelData(0);
+    var i, w, peak = 0;
+    if(kind === 'white'){
+      for(i=0;i<len;i++){ d[i] = (Math.random()*2-1)*.55; }
+    } else if(kind === 'pink'){
+      var b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for(i=0;i<len;i++){
+        w = Math.random()*2-1;
+        b0 = 0.99886*b0 + w*0.0555179;
+        b1 = 0.99332*b1 + w*0.0750759;
+        b2 = 0.96900*b2 + w*0.1538520;
+        b3 = 0.86650*b3 + w*0.3104856;
+        b4 = 0.55000*b4 + w*0.5329522;
+        b5 = -0.7616*b5 - w*0.0168980;
+        d[i] = (b0+b1+b2+b3+b4+b5+b6 + w*0.5362)*0.11;
+        b6 = w*0.115926;
+      }
+    } else {
+      var last = 0;
+      for(i=0;i<len;i++){
+        w = Math.random()*2-1;
+        last = (last + 0.02*w)/1.02;
+        d[i] = last*3.2;
+      }
+    }
+    for(i=0;i<len;i++){ var a = Math.abs(d[i]); if(a>peak) peak=a; }
+    if(peak>0){ var g = .72/peak; for(i=0;i<len;i++){ d[i]*=g; } }
+    return buf;
+  }
+
+  function initNoise(){
+    if(noiseCtx) return;
+    var AC = window.AudioContext || window.webkitAudioContext;
+    if(!AC) return;
+    noiseCtx = new AC();
+    SOUNDS.forEach(function(s){
+      if(!s.synth) return;
+      var src = noiseCtx.createBufferSource();
+      src.buffer = makeNoiseBuffer(noiseCtx, s.synth);
+      src.loop = true;
+      var gn = noiseCtx.createGain();
+      gn.gain.value = 0;
+      src.connect(gn); gn.connect(noiseCtx.destination);
+      try{ src.start(); }catch(e){}
+      noiseNodes[s.id] = { src:src, gn:gn };
+    });
+  }
+
+  function tickAudio(dt){
+    var k = 1 - Math.exp(-dt*3.0);
+    for(var i=0;i<SOUNDS.length;i++){
+      var s = SOUNDS[i], tr = state.tracks[s.id];
+      var tgt = tr.on ? tr.vol : 0;
+      tr.vg += (tgt - tr.vg)*k;                 // 画面用的包络（不受主音量影响）
+      var aTgt = state.started ? tgt : 0;
+      tr.cur += (aTgt - tr.cur)*k;              // 声音用的包络
+      var el = els[s.id];
+      if(el){
+        var v = clamp(tr.cur*state.master, 0, 1);
+        if(Math.abs(el.volume - v) > 0.002) el.volume = v;
+        if(state.started && tr.on) tryPlay(el);
+      }
+    }
+    if(noiseCtx){
+      for(var id in noiseNodes){
+        var t = state.tracks[id];
+        var val = clamp(t.cur * state.master * 0.20, 0, 1);
+        noiseNodes[id].gn.gain.value = val;
+      }
+    }
+  }
+
+  async function playAll(){
+    initNoise();
+    if(noiseCtx && noiseCtx.state !== 'running'){
+      try{ await noiseCtx.resume(); }catch(e){}
+    }
+    // 关键：每次起播都从 0 开始重新补间，绝不在上一次的音量上继续叠
+    for(var j=0;j<SOUNDS.length;j++){
+      var trj = state.tracks[SOUNDS[j].id];
+      trj.cur = 0;
+      trj.vg = trj.on ? trj.vol : 0;
+      var ej = els[SOUNDS[j].id];
+      if(ej) ej.volume = 0;
+    }
+    state.started = true;
+    for(var i=0;i<SOUNDS.length;i++){
+      var s = SOUNDS[i], el = els[s.id];
+      if(el && state.tracks[s.id].on){
+        try{ await el.play(); }catch(e){}
+      }
+    }
+    syncPlayUI();
+    var hint = $('#startHint'); if(hint) hint.classList.add('hide');
+  }
+
+  function pauseAll(){
+    state.started = false;
+    for(var id in els){
+      try{ els[id].pause(); }catch(e){}
+      els[id].volume = 0;
+    }
+    for(var k=0;k<SOUNDS.length;k++){ state.tracks[SOUNDS[k].id].cur = 0; }
+    if(noiseCtx){
+      for(var nid in noiseNodes){ noiseNodes[nid].gn.gain.value = 0; }
+    }
+    syncPlayUI();
+  }
+
+  // 单次开关锁：连点不会叠加 play() 或重复起播
+  var toggling = false;
+  async function togglePlayback(){
+    if(toggling) return;
+    toggling = true;
+    try{
+      if(state.started) pauseAll(); else await playAll();
+    } finally {
+      toggling = false;
+    }
+  }
+
+  // 切到后台自动暂停，切回来不会自己响
+  function handleVisibility(){
+    if(document.hidden && state.started){
+      pauseAll();
+      toast('切到后台已暂停 · 回来点「播放」继续');
+    }
+  }
+  document.addEventListener('visibilitychange', handleVisibility);
+
+  /* =========================================================
+     4. 画布
+     ========================================================= */
+  var roomCanvas = $('#room'), roomCtx = roomCanvas.getContext('2d');
+  var outCanvas  = $('#outside'), outCtx = outCanvas.getContext('2d');
+  var OW = 116, OH = 100;
+
+  var offCanvas = document.createElement('canvas'); offCanvas.width=OW; offCanvas.height=OH;
+  var offCtx = offCanvas.getContext('2d');
+  var prevCanvas = document.createElement('canvas'); prevCanvas.width=OW; prevCanvas.height=OH;
+  var prevCtx = prevCanvas.getContext('2d');
+  var fade = 0;
+
+  roomCtx.imageSmoothingEnabled = false;
+  outCtx.imageSmoothingEnabled = false;
+  offCtx.imageSmoothingEnabled = false;
+
+  function snapshotOutside(){
+    prevCtx.clearRect(0,0,OW,OH);
+    prevCtx.drawImage(outCanvas,0,0);
+    fade = 1;
+  }
+
+  function flashVeil(){
+    var v = $('#veil');
+    v.style.transition = 'none';
+    v.style.opacity = '0.42';
+    requestAnimationFrame(function(){
+      v.style.transition = 'opacity .62s ease';
+      v.style.opacity = '0';
+    });
+  }
+
+  /* ---------- 窗外层 ---------- */
+  function skyAt(stops, u){
+    for(var i=1;i<stops.length;i++){
+      if(u <= stops[i][0]){
+        var p0=stops[i-1][0], p1=stops[i][0];
+        var t = (u-p0)/((p1-p0)||1);
+        return mix(stops[i-1][1], stops[i][1], t);
+      }
+    }
+    return stops[stops.length-1][1];
+  }
+
+  function blockCircle(o, cx, cy, r){
+    for(var dy=-r; dy<=r; dy++){
+      var dx = Math.floor(Math.sqrt(r*r - dy*dy));
+      o.fillRect(Math.round(cx-dx), Math.round(cy+dy), dx*2+1, 1);
+    }
+  }
+
+  function drawSky(o, T, t){
+    var bands = 25, bh = OH/bands;
+    for(var i=0;i<bands;i++){
+      o.fillStyle = skyAt(T.sky, i/(bands-1));
+      o.fillRect(0, Math.round(i*bh), OW, Math.ceil(bh)+1);
+    }
+  }
+
+  function drawCelestial(o, T, t, hz){
+    if(T.sun){
+      var s = T.sun;
+      var sy = s.y;
+      if(state.time === 'dawn' || state.time === 'dusk') sy = hz - 9; // 低垂在地平线上
+      for(var k=3;k>=1;k--){
+        o.globalAlpha = .055*k;
+        o.fillStyle = s.glow;
+        blockCircle(o, s.x, sy, s.r + k*3);
+      }
+      o.globalAlpha = 1;
+      o.fillStyle = s.c;
+      blockCircle(o, s.x, sy, s.r);
+      o.fillStyle = 'rgba(255,255,255,.55)';
+      blockCircle(o, s.x-1, sy-1, Math.max(1, s.r-3));
+    }
+    if(T.moon){
+      var m = T.moon;
+      for(var k2=3;k2>=1;k2--){
+        o.globalAlpha = .05*k2;
+        o.fillStyle = m.glow;
+        blockCircle(o, m.x, m.y, m.r + k2*3);
+      }
+      o.globalAlpha = 1;
+      o.fillStyle = m.c;
+      blockCircle(o, m.x, m.y, m.r);
+      o.fillStyle = 'rgba(150,168,205,.55)';
+      o.fillRect(m.x-2, m.y-2, 2, 2);
+      o.fillRect(m.x+1, m.y+1, 2, 1);
+      o.fillRect(m.x-1, m.y+2, 1, 1);
+      o.fillStyle = 'rgba(255,255,255,.8)';
+      o.fillRect(m.x-3, m.y-3, 1, 1);
+    }
+    o.globalAlpha = 1;
+  }
+
+  function drawStars(o, T, t){
+    if(T.star <= 0) return;
+    for(var i=0;i<56;i++){
+      var x = Math.floor(hash(i*7.31)*OW);
+      var y = Math.floor(hash(i*3.17)*56);
+      var tw = .42 + .58*Math.abs(Math.sin(t*0.9 + hash(i)*9));
+      o.globalAlpha = T.star*tw*.9;
+      o.fillStyle = (i%23===0) ? '#f2e8d2' : '#dfe8ff';
+      o.fillRect(x,y,1,1);
+      if(i%29===0 && T.star>.8){
+        o.globalAlpha = T.star*tw*.5;
+        o.fillRect(x-1,y,3,1); o.fillRect(x,y-1,1,3);
+      }
+    }
+    o.globalAlpha = 1;
+  }
+
+  function drawClouds(o, T, t){
+    var n = Math.round(4*T.cloud);
+    for(var i=0;i<n;i++){
+      var sp = .55 + hash(i*5.3)*.8;
+      var x = ((hash(i*2.1) + t*sp*.012) % 1.3 - .15) * OW;
+      var y = 7 + hash(i*4.4)*26;
+      var w = 12 + hash(i*9.1)*13;
+      var h = 3 + Math.floor(hash(i*6.2)*2);
+      o.globalAlpha = .45 + .35*T.cloud;
+      o.fillStyle = T.cloudC;
+      o.fillRect(Math.round(x), Math.round(y), w, h);
+      o.fillRect(Math.round(x+3), Math.round(y-h), Math.max(2,w-9), h);
+      o.fillRect(Math.round(x+w-7), Math.round(y+1), 7, h-1);
+    }
+    o.globalAlpha = 1;
+  }
+
+  function drawPine(o, x, by, h, color, t, sw){
+    var wind = vg('wind')*.55 + vg('wind-in-trees');
+    var sway = Math.sin(t*1.15 + x*.38)*wind*1.7*sw;
+    o.fillStyle = color;
+    for(var i=0;i<h;i++){
+      var u = i/h;
+      var w = Math.max(1, Math.round((1-u)*h*.52));
+      o.fillRect(Math.round(x - w/2 + sway*u), Math.round(by-i), w, 1);
+    }
+    o.fillRect(Math.round(x-1+sway*.3), by, 2, 3);
+  }
+
+  function drawScenery(o, T, t){
+    var scene = state.scene;
+
+    if(scene === 'rain'){
+      var hz = 70;
+      // 远山
+      o.fillStyle = T.far;
+      for(var x=0;x<OW;x++){
+        var hh = Math.round(7 + 4*Math.sin(x*.09) + 3*Math.sin(x*.031+2));
+        o.fillRect(x, hz-hh, 1, hh);
+      }
+      // 远处房子
+      for(var i=0;i<9;i++){
+        var bw = 8 + Math.round(hash(i*2.2)*8);
+        var bx = Math.round(i*13 - 4);
+        var bh = 13 + Math.round(hash(i*3.7)*20);
+        o.fillStyle = mix(T.ground,'#000000',.15);
+        o.fillRect(bx, hz-bh, bw, bh);
+        o.fillRect(bx-1, hz-bh-1, bw+2, 1);
+        var lit = hash(i*5.1) > .45;
+        if(lit){
+          o.fillStyle = 'rgba(255,196,120,'+(0.5 + 0.22*Math.sin(t*1.8 + i*2))+')';
+          o.fillRect(bx+2, hz-bh+4, 2, 2);
+          o.fillRect(bx+6, hz-bh+9, 2, 2);
+        }
+      }
+      // 地面
+      o.fillStyle = T.ground;
+      o.fillRect(0, hz, OW, OH-hz);
+      o.fillStyle = 'rgba(0,0,0,.28)';
+      o.fillRect(0, hz, OW, 2);
+      // 近处树影
+      o.fillStyle = mix(T.ground,'#000000',.55);
+      o.fillRect(3, 44, 3, 44);
+      for(var j=0;j<4;j++){
+        var rr = 9 - j*1.6;
+        o.fillRect(Math.round(4-rr/2), 44+j*7, Math.round(rr), 8);
+      }
+    }
+
+    else if(scene === 'sea'){
+      var hz2 = 54;
+      // 海平线远岛
+      o.fillStyle = mix(T.far,'#000000',.2);
+      o.fillRect(6, hz2-4, 22, 4);
+      o.fillRect(9, hz2-6, 5, 2);
+      o.fillRect(22, hz2-5, 3, 1);
+      // 海面
+      var isDay = state.time === 'day';
+      var seaTop = mix('#0f3a52', T.light, isDay ? .42 : .12);
+      var seaBot = mix('#082438', T.light, isDay ? .18 : .04);
+      for(var y=hz2;y<OH;y+=2){
+        var u = (y-hz2)/(OH-hz2);
+        o.fillStyle = mix(seaTop, seaBot, u);
+        o.fillRect(0, y, OW, 2);
+      }
+      o.fillStyle = 'rgba(255,255,255,.16)';
+      o.fillRect(0, hz2, OW, 1);
+      // 浪（受「海浪」音量驱动）
+      var amp = .25 + .75*vg('waves');
+      for(var yy=hz2+2; yy<OH; yy+=2){
+        var d = (yy-hz2)/(OH-hz2);
+        for(var xx=0; xx<OW; xx+=3){
+          var wob = Math.sin(xx*.13 + yy*.55 - t*1.9)*d*amp*1.5;
+          var py = Math.round(yy + wob);
+          var hv = hash(xx*.71 + yy*3.13 + Math.floor(t*3));
+          if(hv > .78){
+            o.fillStyle = 'rgba(222,240,247,'+(0.07 + 0.20*amp*d)+')';
+            o.fillRect(xx, py, 2, 1);
+          }
+        }
+      }
+      // 岸边浪花
+      var foam = Math.sin(t*1.4)*.5+.5;
+      o.fillStyle = 'rgba(230,245,248,'+(.10 + .22*amp*foam)+')';
+      o.fillRect(0, OH-4, OW, 1);
+      o.fillRect(2, OH-2, OW-6, 1);
+    }
+
+    else if(scene === 'forest'){
+      var gy = 74;
+      // 远林
+      for(var k=0;k<21;k++){
+        drawPine(o, k*6+2, gy-2, 16 + hash(k*1.7)*14, mix(T.far,'#000000',.1), t, .35);
+      }
+      // 地面
+      o.fillStyle = mix(T.ground,'#000000',.1);
+      o.fillRect(0, gy, OW, OH-gy);
+      // 近林
+      for(var k2=0;k2<8;k2++){
+        drawPine(o, k2*15+3, gy+5, 30 + hash(k2*3.1)*22, mix(T.ground,'#000000',.55), t, 1);
+      }
+      o.fillStyle = 'rgba(0,0,0,.3)';
+      o.fillRect(0, gy, OW, 2);
+    }
+
+    else {
+      // 炉边：窗外安静雪景
+      var gy2 = 72;
+      var snowC = mix('#bccbdd', T.light, .38);
+      o.fillStyle = mix(T.far,'#000000',.25);
+      o.fillRect(0, gy2-10, OW, 10);
+      for(var p=0;p<16;p++){
+        drawPine(o, p*8, gy2-2, 20 + hash(p*2.3)*13, mix(snowC,'#2b3a4a',.55), t, .35);
+      }
+      o.fillStyle = snowC;
+      o.fillRect(0, gy2, OW, OH-gy2);
+      o.fillStyle = 'rgba(255,255,255,.3)';
+      o.fillRect(0, gy2, OW, 1);
+      // 雪堆起伏
+      for(var dz=0;dz<OW;dz+=7){
+        o.fillStyle = 'rgba(255,255,255,.14)';
+        o.fillRect(dz, gy2 - (hash(dz*.9)>.5?1:0), 7, 2);
+      }
+      // 雪地暗纹
+      o.fillStyle = 'rgba(120,145,175,.10)';
+      o.fillRect(0, gy2+9, OW, 1);
+      o.fillRect(14, gy2+18, 40, 1);
+      o.fillRect(66, gy2+14, 30, 1);
+    }
+  }
+
+  function drawWeather(o, T, t, photoMode){
+    var scene = state.scene;
+    var rain = vg('light-rain')*.62 + vg('heavy-rain')*.95 + vg('rain-on-window')*.28;
+    var glass = vg('rain-on-window');
+    var windA = vg('wind')*.5 + vg('wind-in-trees')*.5;
+
+    // 雨
+    if(rain > .02){
+      var n = Math.round(rain*95);
+      for(var i=0;i<n;i++){
+        var speed = 46 + hash(i*3.7)*70;
+        var sp = 6 + windA*16;
+        var x = (hash(i*1.37)*OW + t*sp) % (OW+14) - 7;
+        var y = (hash(i*2.11)*OH + t*speed) % (OH+8) - 4;
+        var len = 2 + Math.round(hash(i*5.9)*2);
+        o.fillStyle = 'rgba(196,222,236,'+(0.18 + 0.3*hash(i*9.1))+')';
+        o.fillRect(Math.round(x), Math.round(y), 1, len);
+        o.fillRect(Math.round(x)+1, Math.round(y)+len, 1, 1);
+      }
+    }
+
+    // 雨打窗：玻璃上的水珠
+    if(glass > .03){
+      for(var g=0;g<18;g++){
+        var gx = Math.floor(hash(g*4.11)*OW);
+        var base = hash(g*6.7)*OH;
+        var gy = (base + t*(3 + hash(g*8.3)*9)) % OH;
+        o.fillStyle = 'rgba(220,240,250,'+(.30*glass)+')';
+        o.fillRect(gx, Math.round(gy), 1, 2);
+        o.fillStyle = 'rgba(120,160,180,'+(.25*glass)+')';
+        o.fillRect(gx, Math.round(gy)+2, 1, 1);
+      }
+      for(var g2=0;g2<26;g2++){
+        o.fillStyle = 'rgba(210,235,245,'+(.12*glass)+')';
+        o.fillRect(Math.floor(hash(g2*1.9)*OW), Math.floor(hash(g2*3.3)*OH), 1, 1);
+      }
+    }
+
+    // 雪（炉边场景）
+    if(scene === 'hearth'){
+      var sn = 26;
+      for(var k=0;k<sn;k++){
+        var sx = (hash(k*2.7)*OW + Math.sin(t*.5 + k)*6) % OW;
+        var sy = (hash(k*5.1)*OH + t*(6+hash(k*3.9)*7)) % OH;
+        o.fillStyle = 'rgba(255,255,255,'+(.25 + .3*hash(k*7.7))+')';
+        o.fillRect(Math.round(sx), Math.round(sy), 1, 1);
+      }
+    }
+
+    // 底部水面（溪流 / 瀑布 / 水滴 / 海浪 的通用表现）
+    var wv = vg('waves'), rv = vg('river'), wf = vg('waterfall'), dp = vg('droplets');
+    var water = Math.max(wv, rv, wf, dp);
+    if(water > .03 && scene !== 'sea' && !photoMode){
+      var wy = 92;
+      o.fillStyle = 'rgba(12,26,38,'+(.26 + .20*water)+')';
+      o.fillRect(0, wy, OW, OH-wy);
+      o.fillStyle = 'rgba(140,190,208,'+(.08 + .12*water)+')';
+      for(var x2=0;x2<OW;x2+=2){
+        var yy2 = wy + 2 + Math.round(1.6*Math.sin(x2*.25 + t*(1.6 + rv*3)));
+        if(hash(x2*1.3 + Math.floor(t*5)) > .45) o.fillRect(x2, yy2, 2, 1);
+      }
+      if(wf > .05){
+        o.fillStyle = 'rgba(226,244,250,'+(.14+.3*wf)+')';
+        for(var y3=40;y3<wy+8;y3+=2){
+          var xo = 6 + Math.round(Math.sin(y3*.4 + t*3)*1.5);
+          o.fillRect(xo, y3, 2, 2);
+        }
+      }
+      if(dp > .05){
+        for(var d2=0;d2<5;d2++){
+          var dx2 = (hash(d2*3.1)*OW + t*4) % OW;
+          var dy2 = (hash(d2*7.2)*80 + t*24) % 84;
+          o.fillStyle = 'rgba(210,238,248,'+(.3*dp)+')';
+          o.fillRect(Math.round(dx2), Math.round(dy2), 1, 3);
+        }
+      }
+    }
+
+    // 风：掠过的小气流
+    if(windA > .12){
+      o.fillStyle = 'rgba(220,235,245,'+(.10*windA)+')';
+      for(var g3=0;g3<5;g3++){
+        var gx2 = ((hash(g3*2.2)*OW + t*(14 + g3*9)) % (OW+30)) - 15;
+        var gy2 = 20 + hash(g3*6.1)*40;
+        o.fillRect(Math.round(gx2), Math.round(gy2), 5, 1);
+        o.fillRect(Math.round(gx2)+6, Math.round(gy2)+1, 3, 1);
+      }
+    }
+
+    // 鸟
+    var bird = vg('birds');
+    if(bird > .05){
+      for(var b=0;b<3;b++){
+        var bx2 = ((hash(b*4.4)*OW + t*(5+b*3)) % (OW+20)) - 10;
+        var by2 = 16 + hash(b*8.8)*18 + Math.sin(t*.8+b)*2;
+        var flap = Math.sin(t*7 + b*2) > 0 ? 0 : 1;
+        o.fillStyle = 'rgba(16,22,30,'+(.55+.3*bird)+')';
+        o.fillRect(Math.round(bx2), Math.round(by2), 1, 1);
+        o.fillRect(Math.round(bx2)-2, Math.round(by2)+flap, 2, 1);
+        o.fillRect(Math.round(bx2)+1, Math.round(by2)+flap, 2, 1);
+      }
+    }
+
+    // 虫鸣：草间萤火
+    var cr = vg('crickets');
+    if(cr > .05){
+      for(var c=0;c<9;c++){
+        var cx = hash(c*3.3)*OW;
+        var cy = 66 + hash(c*5.9)*28;
+        var bl = Math.max(0, Math.sin(t*1.6 + c*1.7));
+        if(bl > .15){
+          o.fillStyle = 'rgba(228,246,180,'+(.55*bl*cr)+')';
+          o.fillRect(Math.round(cx), Math.round(cy), 1, 1);
+          o.fillStyle = 'rgba(228,246,180,'+(.16*bl*cr)+')';
+          o.fillRect(Math.round(cx)-1, Math.round(cy), 3, 1);
+        }
+      }
+    }
+
+    // 合成噪音的画面呼应：极轻微
+    var wn = vg('white-noise'), pn = vg('pink-noise'), bn = vg('brown-noise');
+    if(wn > .05){
+      for(var q=0;q<70;q++){
+        o.fillStyle = 'rgba(255,255,255,'+(.05*wn)+')';
+        o.fillRect(Math.floor(hash(q*1.1 + Math.floor(t*20))*OW),
+                   Math.floor(hash(q*2.7 + Math.floor(t*20))*OH), 1, 1);
+      }
+    }
+    if(pn > .05){
+      o.fillStyle = 'rgba(226,190,210,'+(.05*pn)+')';
+      for(var q2=0;q2<8;q2++){
+        o.fillRect(0, Math.floor(hash(q2 + Math.floor(t*3))*OH), OW, 1);
+      }
+    }
+    if(bn > .05){
+      o.fillStyle = 'rgba(255,180,110,'+(.05*bn)+')';
+      o.fillRect(0, OH-14, OW, 14);
+    }
+  }
+
+  function drawOutside(t){
+    var o = offCtx, T = TIMES[state.time];
+    o.clearRect(0,0,OW,OH);
+
+    if(state.scene === 'photo' && photo){
+      if(photoDirty) rebuildPhotoLayer();
+      o.drawImage(photoLayer, 0, 0);
+      drawWeather(o, T, t, true);
+    } else {
+      var hz = sceneHorizon();
+      drawSky(o,T,t);
+      drawCelestial(o,T,t,hz);
+      drawStars(o,T,t);
+      drawClouds(o,T,t);
+      drawScenery(o,T,t);
+      drawWeather(o, T, t, false);
+    }
+
+    outCtx.clearRect(0,0,OW,OH);
+    outCtx.drawImage(offCanvas,0,0);
+    if(fade > 0.001){
+      outCtx.globalAlpha = fade;
+      outCtx.drawImage(prevCanvas,0,0);
+      outCtx.globalAlpha = 1;
+    }
+  }
+
+  /* ---------- 房间层 ---------- */
+  function drawBed(c){
+    // 床头板（贴左墙）
+    c.fillStyle = '#241a13'; c.fillRect(10,100,12,52);
+    c.fillStyle = '#3f2e20'; c.fillRect(10,100,3,52);
+    c.fillStyle = '#181009'; c.fillRect(19,100,3,52);
+    c.fillStyle = '#4a3626'; c.fillRect(10,100,12,2);
+    // 床架（含前挡板）
+    c.fillStyle = '#3a2b20'; c.fillRect(20,146,76,12);
+    c.fillStyle = '#54402e'; c.fillRect(20,146,76,2);
+    c.fillStyle = '#241a13'; c.fillRect(20,156,76,2);
+    // 床腿
+    c.fillStyle = '#1f1610'; c.fillRect(24,158,6,8); c.fillRect(88,158,6,8);
+    // 被子垂到床架前
+    c.fillStyle = '#5f3831'; c.fillRect(50,146,44,8);
+    c.fillStyle = '#4d2c27'; c.fillRect(50,152,44,2);
+    // 床垫
+    c.fillStyle = '#c9bda6'; c.fillRect(22,132,72,14);
+    c.fillStyle = '#e2d8c2'; c.fillRect(22,132,72,2);
+    c.fillStyle = '#a89b85'; c.fillRect(22,144,72,2);
+    // 枕头
+    c.fillStyle = '#ded2ba'; c.fillRect(26,120,24,14);
+    c.fillStyle = '#f1e7d3'; c.fillRect(28,122,20,3);
+    c.fillStyle = '#c0b39b'; c.fillRect(26,132,24,2);
+    // 被子（盖住床右半，边缘盖过床垫）
+    c.fillStyle = '#6d4038'; c.fillRect(50,128,44,18);
+    c.fillStyle = '#8a544a'; c.fillRect(50,128,44,4);
+    c.fillStyle = '#54302a'; c.fillRect(50,144,44,2);
+    // 被子折边与褶皱
+    c.fillStyle = '#54302a'; c.fillRect(50,128,1,18);
+    for(var i=0;i<4;i++){ c.fillStyle='#5a332d'; c.fillRect(58+i*9,132,1,12); }
+    // 床尾搭毯
+    c.fillStyle = '#3d4a52'; c.fillRect(82,130,12,2);
+    c.fillStyle = '#2e3a42'; c.fillRect(82,132,12,4);
+  }
+
+  function drawShelfLamp(c, t){
+    // 墙上搁板
+    c.fillStyle = '#2b1e15'; c.fillRect(6,100,50,4);
+    c.fillStyle = '#4a3626'; c.fillRect(6,100,50,1);
+    c.fillStyle = '#181009'; c.fillRect(10,104,4,3); c.fillRect(48,104,4,3);
+    // 灯座
+    var on = state.lamp;
+    var shade = on ? '#e8b878' : '#4a3f33';
+    var shadeHi = on ? '#ffd9a2' : '#5b4e40';
+    c.fillStyle = '#2e2620'; c.fillRect(21,96,14,4);
+    c.fillStyle = '#3a3028'; c.fillRect(26,88,4,8);
+    for(var y=80;y<96;y+=2){
+      var u = (y-80)/16;
+      var w = 6 + Math.round(u*10);
+      c.fillStyle = shade;
+      c.fillRect(Math.round(28-w/2), y, w, 2);
+    }
+    c.fillStyle = shadeHi; c.fillRect(24,94,8,2);
+    if(on){
+      c.fillStyle = 'rgba(255,214,160,.45)';
+      c.fillRect(25,95,6,1);
+    }
+    // 搁板上的小书
+    c.fillStyle = '#6b4a3a'; c.fillRect(12,92,3,8);
+    c.fillStyle = '#4a5a5e'; c.fillRect(15,90,3,10);
+  }
+
+  function drawFireplace(c, t){
+    var lit = state.fire;
+    // 石壁
+    c.fillStyle = '#3a3a40'; c.fillRect(232,88,76,80);
+    c.fillStyle = '#323238'; c.fillRect(232,88,3,80);
+    // 砖纹
+    for(var y=92;y<166;y+=8){
+      for(var x=236;x<306;x+=14){
+        var off = (Math.round(y/8)%2)?7:0;
+        c.fillStyle = 'rgba(0,0,0,.16)';
+        c.fillRect(x+off, y, 13, 1);
+        c.fillRect(x+off, y, 1, 7);
+      }
+    }
+    // 壁炉台
+    c.fillStyle = '#241a13'; c.fillRect(226,82,88,8);
+    c.fillStyle = '#4a3626'; c.fillRect(226,82,88,2);
+    c.fillStyle = '#150e09'; c.fillRect(226,89,88,1);
+    // 台面摆件
+    c.fillStyle = '#6b4a35'; c.fillRect(258,64,22,18);
+    c.fillStyle = '#2a2018'; c.fillRect(261,67,16,12);
+    c.fillStyle = '#8d6a4a'; c.fillRect(236,72,4,10);
+    c.fillStyle = '#f0c98a'; c.fillRect(236,70,4,2);
+    c.fillStyle = '#4a5a55'; c.fillRect(292,74,7,8);
+    c.fillStyle = '#5c6f68'; c.fillRect(293,72,5,2);
+    // 炉口
+    c.fillStyle = '#080506'; c.fillRect(246,110,48,54);
+    c.fillStyle = '#080506'; c.fillRect(250,106,40,6);
+    // 炉底
+    c.fillStyle = '#2a2a2f'; c.fillRect(238,162,60,8);
+    // 柴
+    c.fillStyle = '#3a2517'; c.fillRect(252,146,36,5);
+    c.fillStyle = '#4a3020'; c.fillRect(256,140,28,5);
+    c.fillStyle = '#2a1a10'; c.fillRect(252,150,36,3);
+    // 火焰
+    var fa = vg('campfire');
+    if(lit){
+      var hMax = 20 + 12*fa + 3*Math.sin(t*3.1);
+      var layers = [
+        { c:'#8a2a10', s:1.00 },
+        { c:'#d1571a', s:.78 },
+        { c:'#f2a63c', s:.52 },
+        { c:'#ffe6a8', s:.26 }
+      ];
+      for(var li=0;li<layers.length;li++){
+        var L = layers[li];
+        for(var x2=-14;x2<14;x2+=2){
+          var ph = hash(li*13.7 + x2*0.73);
+          var f = 0.5 + 0.5*Math.sin(t*(5.5 + li) + ph*9 + x2*0.4);
+          var hh = hMax*L.s*(0.45 + 0.75*f)*(1 - Math.abs(x2)/20);
+          if(hh <= 0) continue;
+          c.fillStyle = L.c;
+          c.fillRect(270 + x2, Math.round(146 - hh), 2, Math.round(hh));
+        }
+      }
+      // 火星
+      for(var e=0;e<5;e++){
+        var eu = (t*0.45 + hash(e*3.3)) % 1;
+        var ex = 262 + hash(e*7.1)*18 + Math.sin(t*2+e)*2;
+        var ey = 142 - eu*30;
+        c.fillStyle = 'rgba(255,170,80,'+(0.7*(1-eu))+')';
+        c.fillRect(Math.round(ex), Math.round(ey), 1, 1);
+      }
+    } else {
+      // 余烬
+      c.fillStyle = 'rgba(120,40,16,.5)';
+      c.fillRect(256,144,28,2);
+    }
+  }
+
+  function drawRug(c){
+    c.fillStyle = '#332723'; c.fillRect(118,154,88,22);
+    c.fillStyle = '#3d2f28'; c.fillRect(121,157,82,16);
+    c.fillStyle = '#4a382f'; c.fillRect(121,157,82,1); c.fillRect(121,172,82,1);
+    c.fillStyle = '#2c211d';
+    for(var x=126;x<200;x+=8) c.fillRect(x,161,4,1);
+    c.fillStyle = '#291f1c';
+    for(var x2=118;x2<206;x2+=3) c.fillRect(x2,175,1,2);
+  }
+
+  function drawFirewood(c){
+    c.fillStyle = '#3a2517'; c.fillRect(212,156,18,12);
+    c.fillStyle = '#4a3020'; c.fillRect(214,152,14,5);
+    c.fillStyle = '#2a1a10'; c.fillRect(212,166,18,2);
+    c.fillStyle = '#5a3a24'; c.fillRect(215,157,3,9); c.fillRect(221,157,3,9);
+  }
+
+  /* ---------- 猫 ---------- */
+  var catState = { happyUntil:0, purrUntil:0, clicks:[], sayTimer:null };
+  var CAT = { x:168, y:172 };
+
+  function drawCat(c, t){
+    var now = performance.now();
+    var happy = catState.happyUntil > now;
+    var purr  = catState.purrUntil > now;
+    var cx = CAT.x, gy = CAT.y;
+    var breath = Math.sin(t*2.1) > 0 ? 0 : 1;
+    var hop = 0;
+    if(happy){
+      var left = Math.max(0, catState.happyUntil - now) / 900;
+      hop = -Math.round(Math.sin((1-left)*Math.PI) * 3);
+    }
+    var b = gy - 20 + hop + breath;
+
+    // 影子
+    c.fillStyle = 'rgba(0,0,0,.28)';
+    c.fillRect(cx-12, gy-1, 26, 2);
+
+    // 尾巴（一摆一摆）
+    var sway = Math.sin(t * (purr ? 10 : 2.4)) * (purr ? 3 : 2);
+    for(var i=0;i<5;i++){
+      var tx = cx + 8 + i*2;
+      var ty = b + 13 - i*3 + Math.round(sway * (i/4));
+      c.fillStyle = i === 4 ? '#e8b57e' : '#c98a52';
+      c.fillRect(tx, ty, 2, 3);
+    }
+
+    // 身体 + 虎斑
+    c.fillStyle = '#c98a52'; c.fillRect(cx-8, b+6, 17, 14);
+    c.fillStyle = '#b3763f'; c.fillRect(cx-8, b+17, 17, 3);
+    c.fillStyle = '#a06a38';
+    c.fillRect(cx-6, b+9, 2, 6); c.fillRect(cx-1, b+9, 2, 6); c.fillRect(cx+4, b+9, 2, 6);
+    // 前爪
+    c.fillStyle = '#e8b57e';
+    c.fillRect(cx-7, b+18, 5, 2); c.fillRect(cx+1, b+18, 5, 2);
+
+    // 头
+    c.fillStyle = '#c98a52'; c.fillRect(cx-15, b+1, 14, 12);
+    c.fillStyle = '#d99a60'; c.fillRect(cx-15, b+1, 14, 2);
+    // 耳朵（偶尔抖一下）
+    var tw = Math.sin(t*0.9) > 0.94 ? 1 : 0;
+    c.fillStyle = '#c98a52';
+    c.fillRect(cx-14, b-1-tw, 4, 3);
+    c.fillRect(cx-9,  b-1,    4, 3);
+    c.fillStyle = '#e8a5a0';
+    c.fillRect(cx-13, b+1, 2, 2);
+    c.fillRect(cx-8,  b+1, 2, 2);
+
+    // 眼睛：呼噜或打瞌睡时闭眼
+    var closed = purr || (Math.sin(t*0.7) > 0.985);
+    if(closed){
+      c.fillStyle = '#3a2a1c';
+      c.fillRect(cx-12, b+5, 3, 1);
+      c.fillRect(cx-7,  b+5, 3, 1);
+    } else {
+      c.fillStyle = state.fire ? '#ffd98a' : '#ffd166';   // 炉火亮着时眼睛更暖
+      c.fillRect(cx-12, b+4, 3, 2);
+      c.fillRect(cx-7,  b+4, 3, 2);
+      c.fillStyle = '#2a1c12';
+      c.fillRect(cx-11, b+4, 1, 2);
+      c.fillRect(cx-6,  b+4, 1, 2);
+    }
+    // 口鼻 + 胡须
+    c.fillStyle = '#e8c9a8'; c.fillRect(cx-11, b+8, 6, 3);
+    c.fillStyle = '#a5714f'; c.fillRect(cx-9, b+9, 2, 1);
+    c.fillStyle = 'rgba(240,230,210,.65)';
+    c.fillRect(cx-16, b+9, 4, 1);
+    c.fillRect(cx-16, b+11, 4, 1);
+  }
+
+  function catSay(text, ms){
+    var el = $('#catSay');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(catState.sayTimer);
+    catState.sayTimer = setTimeout(function(){ el.classList.remove('show'); }, ms);
+  }
+
+  function drawWindowFrame(c, t){
+    // 窗框底色
+    c.fillStyle = '#231a14';
+    c.fillRect(WIN.x0, WIN.y0, WIN.x1-WIN.x0, WIN.y1-WIN.y0);
+    // 内斜角高光
+    c.fillStyle = '#3b2c21';
+    c.fillRect(WIN.x0, WIN.y0, WIN.x1-WIN.x0, 1);
+    c.fillRect(WIN.x0, WIN.y0, 1, WIN.y1-WIN.y0);
+    c.fillStyle = '#120d0a';
+    c.fillRect(WIN.x0, WIN.y1-1, WIN.x1-WIN.x0, 1);
+    c.fillRect(WIN.x1-1, WIN.y0, 1, WIN.y1-WIN.y0);
+
+    // 挖开窗洞 → 露出窗外层
+    c.clearRect(OPEN.x0, OPEN.y0, OPEN.x1-OPEN.x0, OPEN.y1-OPEN.y0);
+
+    // 中挺
+    c.fillStyle = '#231a14';
+    c.fillRect(157, OPEN.y0, 4, OPEN.y1-OPEN.y0);
+    c.fillRect(OPEN.x0, 77, OPEN.x1-OPEN.x0, 4);
+    c.fillStyle = '#3b2c21';
+    c.fillRect(157, OPEN.y0, 1, OPEN.y1-OPEN.y0);
+    c.fillRect(OPEN.x0, 77, OPEN.x1-OPEN.x0, 1);
+
+    // 窗台
+    c.fillStyle = '#3a2b20'; c.fillRect(88,136,144,7);
+    c.fillStyle = '#54402e'; c.fillRect(88,136,144,2);
+    c.fillStyle = '#150f0b'; c.fillRect(88,143,144,2);
+
+    // 窗台上的杯子
+    c.fillStyle = '#cfc3ac'; c.fillRect(198,128,7,8);
+    c.fillStyle = '#e4dac6'; c.fillRect(198,128,7,1);
+    c.fillStyle = '#a89b85'; c.fillRect(205,130,2,4);
+
+    // 风铃（挂在窗内右上角）
+    var ca = vg('wind-chimes');
+    var sway = Math.sin(t*1.9)*(0.6 + ca*2.2);
+    c.fillStyle = '#2a2018'; c.fillRect(204,32,16,2);
+    for(var i=0;i<3;i++){
+      var bx = 206 + i*5 + Math.round(sway*(0.4+i*0.3));
+      c.fillStyle = 'rgba(200,200,190,.65)';
+      c.fillRect(bx, 34, 1, 6 + i*2);
+      c.fillStyle = ca > .05 ? 'rgba(255,232,180,'+(.5+.4*Math.sin(t*3+i))+')' : '#8d8578';
+      c.fillRect(bx-1, 40 + i*2, 3, 3);
+    }
+  }
+
+  function applyLight(c, T, t){
+    // 按时刻做整体压色
+    c.globalCompositeOperation = 'multiply';
+    c.fillStyle = T.tint;
+    c.globalAlpha = .92;
+    c.fillRect(0,0,W,H);
+    c.globalAlpha = 1;
+
+    // 窗外洒进来的光（地上一块）
+    var spill = (state.time === 'day') ? .16 : (state.time === 'night' ? .07 : .12);
+    c.globalCompositeOperation = 'lighter';
+    c.fillStyle = rgba(state.time === 'day' ? '#cfe3ee' : T.light, spill);
+    for(var y=140;y<180;y++){
+      var u = (y-140)/40;
+      var x1 = 112 - u*8, x2 = 212 + u*10;
+      c.fillRect(Math.round(x1), y, Math.round(x2-x1), 1);
+    }
+
+    // 台灯
+    if(state.lamp){
+      var gs = (state.time === 'day') ? .45 : 1; // 白天环境光足，灯光收敛
+      var lg = c.createRadialGradient(28,92,2,28,92,72);
+      lg.addColorStop(0,'rgba(255,178,102,'+(0.22*gs + 0.015*Math.sin(t*2.1))+')');
+      lg.addColorStop(.45,'rgba(255,164,92,'+(0.09*gs)+')');
+      lg.addColorStop(1,'rgba(255,150,80,0)');
+      c.fillStyle = lg; c.fillRect(0,40,180,140);
+    }
+
+    // 壁炉火光
+    var fa = vg('campfire');
+    if(state.fire){
+      var flick = 0.55 + 0.20*Math.sin(t*7.3) + 0.14*Math.sin(t*17.9+1.2) + 0.10*Math.sin(t*3.1);
+      flick = clamp(flick + fa*.35, 0, 1);
+      var fg = c.createRadialGradient(270,140,4,270,140,120);
+      fg.addColorStop(0,'rgba(255,166,84,'+(0.30*flick + 0.06)+')');
+      fg.addColorStop(.4,'rgba(255,120,50,'+(0.14*flick)+')');
+      fg.addColorStop(1,'rgba(255,90,30,0)');
+      c.fillStyle = fg; c.fillRect(150,40,170,140);
+    }
+    c.globalCompositeOperation = 'source-over';
+  }
+
+  function drawRoom(t){
+    var c = roomCtx, T = TIMES[state.time];
+    c.clearRect(0,0,W,H);
+
+    // 墙
+    c.fillStyle = '#282520'; c.fillRect(0,0,W,H);
+    for(var x=0;x<W;x+=28){
+      c.fillStyle = (Math.round(x/28)%2===0) ? '#2c2822' : '#26231e';
+      c.fillRect(x,8,28,128);
+    }
+    c.fillStyle = '#1c1915';
+    for(var x2=28;x2<W;x2+=28) c.fillRect(x2,8,1,128);
+    // 顶梁
+    c.fillStyle = '#181410'; c.fillRect(0,0,W,8);
+    c.fillStyle = '#302720'; c.fillRect(0,7,W,1);
+    // 踢脚线
+    c.fillStyle = '#1e1a15'; c.fillRect(0,134,W,6);
+
+    // 地板
+    c.fillStyle = '#2f251c'; c.fillRect(0,140,W,H-140);
+    c.fillStyle = '#241c15'; c.fillRect(0,140,W,1);
+    for(var y=150;y<H;y+=10){ c.fillStyle='#241c15'; c.fillRect(0,y,W,1); }
+    for(var yy=140;yy<H;yy+=10){
+      for(var xx=(Math.round(yy/10)%2?10:0); xx<W; xx+=46){
+        c.fillStyle='#241c15'; c.fillRect(xx,yy,1,10);
+      }
+    }
+
+    drawRug(c);
+    drawBed(c);
+    drawShelfLamp(c, t);
+    drawFireplace(c, t);
+    drawFirewood(c);
+    drawCat(c, t);
+
+    applyLight(c, T, t);
+    drawWindowFrame(c, t);
+
+    // 暗角
+    var vgrd = c.createRadialGradient(160,88,46,160,96,214);
+    vgrd.addColorStop(0,'rgba(0,0,0,0)');
+    vgrd.addColorStop(.62,'rgba(0,0,0,.16)');
+    vgrd.addColorStop(1,'rgba(0,0,0,.62)');
+    c.fillStyle = vgrd;
+    c.fillRect(0,0,W,H);
+  }
+
+  /* =========================================================
+     5. 主循环
+     ========================================================= */
+  var last = performance.now(), tt = 0;
+  function loop(now){
+    var dt = Math.min(.05, (now-last)/1000);
+    last = now;
+    tt += dt;
+    tickAudio(dt);
+    drawOutside(tt);
+    drawRoom(tt);
+    if(fade > 0){ fade = Math.max(0, fade - dt*2.2); }
+    requestAnimationFrame(loop);
+  }
+
+  /* =========================================================
+     6. 界面
+     ========================================================= */
+  var sceneChips = $('#sceneChips'), timeChips = $('#timeChips');
+
+  // 滑块的自定义填充色（不用浏览器默认长相）
+  function fillRange(inp){
+    if(!inp || inp.type !== 'range') return;
+    var min = Number(inp.min || 0), max = Number(inp.max || 100), v = Number(inp.value);
+    var p = (max - min) > 0 ? (v - min) / (max - min) : 0;
+    inp.style.setProperty('--p', (p*100).toFixed(1) + '%');
+  }
+  document.addEventListener('input', function(e){
+    if(e.target && e.target.type === 'range') fillRange(e.target);
+  }, true);
+
+  function buildChips(){
+    sceneChips.innerHTML = '';
+    timeChips.innerHTML = '';
+    Object.keys(SCENES).forEach(function(id){
+      var b = document.createElement('button');
+      b.className = 'chip'; b.type='button';
+      b.textContent = SCENES[id].name;
+      b.dataset.id = id;
+      b.setAttribute('aria-pressed','false');
+      b.addEventListener('click', function(){ setScene(id); });
+      sceneChips.appendChild(b);
+    });
+    Object.keys(TIMES).forEach(function(id){
+      var b = document.createElement('button');
+      b.className = 'chip'; b.type='button';
+      b.textContent = TIMES[id].name;
+      b.dataset.id = id;
+      b.setAttribute('aria-pressed','false');
+      b.addEventListener('click', function(){ setTime(id); });
+      timeChips.appendChild(b);
+    });
+    syncChips();
+  }
+
+  function syncChips(){
+    Array.prototype.forEach.call(sceneChips.children, function(b){
+      b.setAttribute('aria-pressed', b.dataset.id === state.scene ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(timeChips.children, function(b){
+      b.setAttribute('aria-pressed', b.dataset.id === state.time ? 'true' : 'false');
+    });
+  }
+
+  var soundList = $('#soundList');
+  function buildSoundUI(){
+    SOUNDS.forEach(function(s){
+      var row = document.createElement('div');
+      row.className = 'snd';
+      row.dataset.id = s.id;
+
+      var sw = document.createElement('button');
+      sw.className = 'sw'; sw.type='button';
+      sw.setAttribute('aria-pressed','false');
+      sw.setAttribute('aria-label', s.name);
+      sw.appendChild(document.createElement('i'));
+      sw.addEventListener('click', function(){
+        var tr = state.tracks[s.id];
+        tr.on = !tr.on;
+        syncSoundUI(); updateCounts();
+      });
+
+      var meta = document.createElement('div');
+      meta.className = 'meta';
+      var nm = document.createElement('div');
+      nm.className = 'nm';
+      nm.textContent = s.name;
+      var eq = document.createElement('span');
+      eq.className = 'eq';
+      eq.innerHTML = '<span></span><span></span><span></span>';
+      nm.appendChild(eq);
+      var tg = document.createElement('div');
+      tg.className = 'tg';
+      tg.textContent = s.tag;
+      meta.appendChild(nm); meta.appendChild(tg);
+
+      var vol = document.createElement('input');
+      vol.type = 'range'; vol.className = 'vol';
+      vol.min = '0'; vol.max = '100';
+      vol.value = String(Math.round(s.vol*100));
+      vol.setAttribute('aria-label', s.name + ' 音量');
+      vol.addEventListener('input', function(){
+        var v = Number(vol.value)/100;
+        state.tracks[s.id].vol = v;
+        vv.textContent = vol.value;
+      });
+
+      var vv = document.createElement('span');
+      vv.className = 'vv';
+      vv.textContent = String(Math.round(s.vol*100));
+
+      row.appendChild(sw); row.appendChild(meta); row.appendChild(vol); row.appendChild(vv);
+      soundList.appendChild(row);
+    });
+  }
+
+  function syncSoundUI(){
+    Array.prototype.forEach.call(soundList.children, function(row){
+      var id = row.dataset.id, tr = state.tracks[id];
+      var sw = row.querySelector('.sw');
+      sw.setAttribute('aria-pressed', tr.on ? 'true' : 'false');
+      row.classList.toggle('playing', !!(tr.on && state.started));
+    });
+  }
+
+  function updateCounts(){
+    var n = 0;
+    SOUNDS.forEach(function(s){ if(state.tracks[s.id].on) n++; });
+    $('#onCount').textContent = String(n);
+    var st = $('#status');
+    if(!state.started){
+      st.textContent = '待启动 · 点「播放」';
+    } else {
+      st.textContent = '正在播放 · ' + n + ' 条声源';
+    }
+  }
+
+  function syncPlayUI(){
+    var btn = $('#playBtn');
+    $('#playTxt').textContent = state.started ? '暂停' : '播放';
+    btn.classList.toggle('on', state.started);
+    syncSoundUI();
+    updateCounts();
+  }
+
+  function setScene(id){
+    if(state.scene === id) return;
+    if(id === 'photo' && !photo) return;
+    snapshotOutside(); flashVeil();
+    state.scene = id;
+    var sc = SCENES[id];
+    SOUNDS.forEach(function(s){
+      state.tracks[s.id].on = sc.sounds.indexOf(s.id) >= 0;
+    });
+    if(!sc.keepFire) state.fire = !!sc.fire;   // 照片场景不动壁炉，别把炉火弄灭
+    if(photo) photoDirty = true;
+    syncChips(); syncSoundUI(); updateCounts(); updatePhTag();
+  }
+
+  function setTime(id){
+    if(state.time === id) return;
+    snapshotOutside(); flashVeil();
+    state.time = id;
+    if(photo) photoDirty = true;
+    if(!$('#photoModal').hidden) renderPreview();
+    syncChips();
+  }
+
+  /* 可点区域定位（按画布坐标换算成百分比） */
+  function placeHit(el, x, y, w, h){
+    el.style.left = (x/W*100)+'%';
+    el.style.top = (y/H*100)+'%';
+    el.style.width = (w/W*100)+'%';
+    el.style.height = (h/H*100)+'%';
+  }
+  placeHit($('#hitLamp'), 14, 78, 34, 30);
+  placeHit($('#hitFire'), 236, 96, 72, 76);
+  placeHit($('#hitCat'), 150, 145, 40, 32);
+
+  // 猫气泡跟着猫的位置走
+  (function(){
+    var cs = $('#catSay');
+    cs.style.left = (CAT.x / W * 100) + '%';
+    cs.style.top  = ((CAT.y - 26) / H * 100) + '%';
+  })();
+
+  var MEOWS = ['喵～', '喵', '喵呜', '喵？'];
+  $('#hitCat').addEventListener('click', function(){
+    var now = performance.now();
+    catState.clicks = catState.clicks.filter(function(ts){ return now - ts < 2600; });
+    catState.clicks.push(now);
+    catState.happyUntil = now + 900;
+    if(catState.clicks.length >= 3){
+      catState.purrUntil = now + 2600;
+      catState.clicks = [];
+      catSay('呼噜噜～', 2400);
+    } else {
+      catSay(MEOWS[Math.floor(Math.random()*MEOWS.length)], 1100);
+    }
+  });
+
+  $('#hitLamp').addEventListener('click', function(){
+    state.lamp = !state.lamp;
+    this.dataset.label = state.lamp ? '关掉台灯' : '点亮台灯';
+  });
+  $('#hitFire').addEventListener('click', function(){
+    state.fire = !state.fire;
+    this.dataset.label = state.fire ? '熄灭壁炉' : '点燃壁炉';
+  });
+
+  $('#playBtn').addEventListener('click', function(){ togglePlayback(); });
+
+  var masterVol = $('#masterVol'), masterNum = $('#masterNum');
+  masterVol.addEventListener('input', function(){
+    state.master = Number(masterVol.value)/100;
+    masterNum.textContent = masterVol.value;
+  });
+
+  var drawer = $('#drawer');
+  $('#drawerBtn').addEventListener('click', function(){ drawer.classList.toggle('open'); });
+  $('#drawerClose').addEventListener('click', function(){ drawer.classList.remove('open'); });
+
+  $('#btnSceneDefault').addEventListener('click', function(){
+    var sc = SCENES[state.scene];
+    SOUNDS.forEach(function(s){ state.tracks[s.id].on = sc.sounds.indexOf(s.id) >= 0; });
+    state.fire = !!sc.fire;
+    syncSoundUI(); updateCounts();
+  });
+  $('#btnAllOff').addEventListener('click', function(){
+    SOUNDS.forEach(function(s){ state.tracks[s.id].on = false; });
+    syncSoundUI(); updateCounts();
+  });
+
+  document.addEventListener('keydown', function(e){
+    if(e.code === 'Space' && e.target.tagName !== 'INPUT'){
+      e.preventDefault();
+      togglePlayback();
+    }
+    if(e.key === 'Escape') drawer.classList.remove('open');
+  });
+
+  /* =========================================================
+     6.6 照片 → 窗外层（全部本地处理，不上传）
+     ========================================================= */
+  var PHOTO_KEY = 'cabinPhoto.v1';
+  var photo = null;                        // { img, url, tags, rec }
+  var photoParams = { block:1, levels:10, bright:0, contrast:0, sat:0, sharpen:55 };
+  var photoDirty = false;
+  var photoPainted = false;
+
+  var photoLayer = document.createElement('canvas');
+  photoLayer.width = OW; photoLayer.height = OH;
+  var photoCtx = photoLayer.getContext('2d');
+
+  var gridCv = document.createElement('canvas');
+  var gridCx = gridCv.getContext('2d');
+
+  /* 时刻调色：不是简单调暗，而是重新分配明暗 + 染色 */
+  function gradePixel(r, g, b, tk){
+    var l = (0.2126*r + 0.7152*g + 0.0722*b) / 255;
+    var sh, hi, gam, gain, sat, warm;
+    if(tk === 'night'){      sh=[8,13,34];   hi=[255,210,150]; gam=1.5;  gain=.66; sat=.44; warm=48; }
+    else if(tk === 'dawn'){  sh=[52,38,64];  hi=[255,198,158]; gam=1.00; gain=.98; sat=1.02; warm=10; }
+    else if(tk === 'dusk'){  sh=[40,24,48];  hi=[255,146,88];  gam=1.14; gain=.88; sat=1.08; warm=16; }
+    else {                   sh=[205,224,238];hi=[255,252,236];gam=.96;  gain=1.06; sat=1.06; warm=0;  }
+
+    var R = Math.pow(clamp(r/255,0,1), gam) * gain * 255;
+    var G = Math.pow(clamp(g/255,0,1), gam) * gain * 255;
+    var B = Math.pow(clamp(b/255,0,1), gam) * gain * 255;
+
+    // 暗部染夜色／亮部染天光
+    var ws = Math.pow(1-l, 2.2) * (tk==='day' ? .10 : (tk==='night' ? .60 : .48));
+    var wh = Math.pow(l, 2.0) * (tk==='day' ? .12 : .38);
+    R = R*(1-ws) + sh[0]*ws; G = G*(1-ws) + sh[1]*ws; B = B*(1-ws) + sh[2]*ws;
+    R = R*(1-wh) + hi[0]*wh; G = G*(1-wh) + hi[1]*wh; B = B*(1-wh) + hi[2]*wh;
+
+    // 去饱和
+    var L2 = 0.2126*R + 0.7152*G + 0.0722*B;
+    R = L2 + (R-L2)*sat; G = L2 + (G-L2)*sat; B = L2 + (B-L2)*sat;
+
+    // 夜里：亮的地方（窗灯、路灯）继续暖亮，暗处压成深蓝 → 像"夜"，而不是单纯调暗
+    if(warm > 0 && l > .58){
+      var k = (l - .58) / .42;
+      R += warm*k; G += warm*.6*k; B += warm*.12*k;
+    }
+    return [clamp(R,0,255), clamp(G,0,255), clamp(B,0,255)];
+  }
+
+  function drawTimeVeil(c, w, h){
+    var g = c.createLinearGradient(0,0,0,h), tk = state.time;
+    if(tk === 'night'){
+      g.addColorStop(0,'rgba(9,16,42,.50)');
+      g.addColorStop(.55,'rgba(7,12,30,.26)');
+      g.addColorStop(1,'rgba(3,6,18,.38)');
+    } else if(tk === 'dawn'){
+      g.addColorStop(0,'rgba(58,58,108,.30)');
+      g.addColorStop(.7,'rgba(240,160,140,.16)');
+      g.addColorStop(1,'rgba(255,182,140,.10)');
+    } else if(tk === 'dusk'){
+      g.addColorStop(0,'rgba(30,20,60,.32)');
+      g.addColorStop(.7,'rgba(200,90,60,.20)');
+      g.addColorStop(1,'rgba(240,140,80,.14)');
+    } else {
+      g.addColorStop(0,'rgba(176,212,240,.10)');
+      g.addColorStop(1,'rgba(255,250,230,.05)');
+    }
+    c.fillStyle = g; c.fillRect(0,0,w,h);
+  }
+
+  /* 高质量降采样：逐步减半，避免一次性缩放糊成一片 */
+  function drawSmoothDown(src, dw, dh){
+    var cw = src.width || 696, ch = src.height || 600;
+    var cur = src;
+    var a = document.createElement('canvas'), b = document.createElement('canvas');
+    var target = a, flip = false;
+    while(cw > dw*2 && ch > dh*2){
+      cw = Math.max(dw, Math.round(cw/2));
+      ch = Math.max(dh, Math.round(ch/2));
+      target.width = cw; target.height = ch;
+      var tcx = target.getContext('2d');
+      tcx.imageSmoothingEnabled = true;
+      tcx.clearRect(0,0,cw,ch);
+      tcx.drawImage(cur, 0, 0, cw, ch);
+      cur = target;
+      flip = !flip;
+      target = flip ? b : a;
+    }
+    gridCx.imageSmoothingEnabled = true;
+    gridCx.clearRect(0,0,gridCv.width,gridCv.height);
+    gridCx.drawImage(cur, 0, 0, gridCv.width, gridCv.height);
+  }
+
+  /* 轻锐化（4 邻域拉普拉斯）：让像素边缘利落，不再糊成一团 */
+  function sharpenPixels(d, w, h, amt){
+    var src = new Uint8ClampedArray(d);
+    for(var y=1;y<h-1;y++){
+      for(var x=1;x<w-1;x++){
+        var i = (y*w + x)*4;
+        for(var ch=0;ch<3;ch++){
+          var c0 = src[i+ch];
+          var sum = src[i-4+ch] + src[i+4+ch] + src[i-w*4+ch] + src[i+w*4+ch];
+          d[i+ch] = c0 + (c0*4 - sum) * (amt*0.55);
+        }
+      }
+    }
+  }
+
+  function buildPhotoGrid(){
+    if(!photo) return;
+    var p = photoParams;
+    var gw = Math.max(2, Math.round(OW / p.block));
+    var gh = Math.max(2, Math.round(OH / p.block));
+    gridCv.width = gw; gridCv.height = gh;
+    drawSmoothDown(photo.img, gw, gh);
+
+    var imgData = gridCx.getImageData(0, 0, gw, gh);
+    var d = imgData.data;
+    var br = p.bright/100*95, ct = 1 + p.contrast/100*1.15, sa = 1 + p.sat/100;
+    var i;
+
+    // 明暗 / 对比 / 饱和 / 时刻调色
+    for(i=0;i<d.length;i+=4){
+      var r = d[i], g = d[i+1], b = d[i+2];
+      r += br; g += br; b += br;
+      r = (r-128)*ct + 128; g = (g-128)*ct + 128; b = (b-128)*ct + 128;
+      var lum = 0.2126*r + 0.7152*g + 0.0722*b;
+      r = lum + (r-lum)*sa; g = lum + (g-lum)*sa; b = lum + (b-lum)*sa;
+      var gr = gradePixel(r, g, b, state.time);
+      d[i] = gr[0]; d[i+1] = gr[1]; d[i+2] = gr[2];
+    }
+
+    // 锐化，再量化（保证锐化后的边缘也落进有限色板）
+    if(p.sharpen > 2) sharpenPixels(d, gw, gh, p.sharpen/100);
+    var L = Math.max(2, Math.round(p.levels));
+    var step = 255/(L-1);
+    for(i=0;i<d.length;i+=4){
+      d[i]   = clamp(Math.round(clamp(d[i],0,255)/step)*step, 0, 255);
+      d[i+1] = clamp(Math.round(clamp(d[i+1],0,255)/step)*step, 0, 255);
+      d[i+2] = clamp(Math.round(clamp(d[i+2],0,255)/step)*step, 0, 255);
+    }
+    gridCx.putImageData(imgData, 0, 0);
+  }
+
+  function rebuildPhotoLayer(){
+    if(!photo) return;
+    buildPhotoGrid();
+    photoCtx.imageSmoothingEnabled = false;
+    photoCtx.clearRect(0,0,OW,OH);
+    photoCtx.drawImage(gridCv, 0, 0, gridCv.width, gridCv.height, 0, 0, OW, OH);
+    drawTimeVeil(photoCtx, OW, OH);
+    photoDirty = false;
+    photoPainted = true;
+  }
+
+  /* ---------- 分析：按颜色 / 明暗 / 构图猜它像什么 ---------- */
+  function analyzePhoto(){
+    var tmp = document.createElement('canvas');
+    tmp.width = 116; tmp.height = 100;
+    var tc = tmp.getContext('2d');
+    tc.drawImage(photo.img, 0, 0, 116, 100);
+    var d = tc.getImageData(0,0,116,100).data;
+
+    var n = 116*100, sumL=0, dark=0, bright=0, blue=0, blueTop=0, blueBot=0;
+    var green=0, cyan=0, warmBright=0;
+    var rowL = new Float32Array(100);
+
+    for(var y=0;y<100;y++){
+      var rowSum = 0;
+      for(var x=0;x<116;x++){
+        var i = (y*116+x)*4, r=d[i], g=d[i+1], b=d[i+2];
+        var l = (0.2126*r + 0.7152*g + 0.0722*b)/255;
+        rowSum += l; sumL += l;
+        if(l < .25) dark++;
+        if(l > .78) bright++;
+        if(b > r+14 && b > g+2){ blue++; if(y < 45) blueTop++; else blueBot++; }
+        if(g > r+10 && g > b+6) green++;
+        if(g > r+10 && b > r+10) cyan++;
+        if(l > .70 && r > b+25) warmBright++;
+      }
+      rowL[y] = rowSum/116;
+    }
+
+    var avgL = sumL/n;
+    var darkR = dark/n, brightR = bright/n, greenR = green/n, cyanR = cyan/n;
+    var blueTopR = blueTop/(45*116), blueBotR = blueBot/(55*116);
+    var warmR = warmBright/n;
+
+    // 地平线：相邻行亮度最大跳变
+    var jump = 0;
+    for(var y2=6;y2<94;y2++){ var dj = Math.abs(rowL[y2]-rowL[y2-1]); if(dj>jump) jump=dj; }
+    var hasHorizon = jump > 0.12;
+
+    var sc = {
+      sky:        clamp(blueTopR*1.5 + brightR*0.7 + (hasHorizon?0.15:0) - (darkR>0.62?0.55:0), 0, 2),
+      water:      clamp(blueBotR*1.7 + cyanR*0.8 + (hasHorizon?0.2:0), 0, 2),
+      vegetation: clamp(greenR*2.1, 0, 2),
+      night:      clamp(darkR*1.7 + (1-avgL)*0.45 - (brightR>0.5?0.3:0), 0, 2),
+      lights:     clamp(warmR*4.6 + (darkR>0.42?0.25:0), 0, 2)
+    };
+
+    var pct = function(v){ return (v*100).toFixed(1)+'%'; };
+    var defs = {
+      sky: { label:'天空', why:'上半部分蓝色像素占 '+pct(blueTopR)+'，整体偏亮（平均亮度 '+Math.round(avgL*255)+'/255）→ 像一片天空' },
+      water: { label:'水面', why:'下半部分蓝色/青色像素占 '+pct(blueBotR)+'，'+(hasHorizon?'画面中间有一条明显的明暗分界（差 '+jump.toFixed(2)+'）→ 像水面的地平线':'颜色大片铺开且很均匀 → 像水面') },
+      vegetation: { label:'植被', why:'绿色像素占 '+pct(greenR)+' → 像树、草、山林这一类的绿' },
+      night: { label:'夜景', why:'平均亮度只有 '+Math.round(avgL*255)+'/255，暗部占 '+pct(darkR)+' → 像夜里或很暗的场景' },
+      lights: { label:'灯光', why:'有 '+pct(warmR)+' 的小块暖色高光，和周围暗部反差大 → 像窗灯、路灯、火光' }
+    };
+
+    var tags = [];
+    Object.keys(sc).forEach(function(k){
+      if(sc[k] >= 0.45){ tags.push({ key:k, label:defs[k].label, why:defs[k].why, score:sc[k] }); }
+    });
+    tags.sort(function(a,b){ return b.score - a.score; });
+    tags = tags.slice(0, 3);
+
+    if(!tags.length){
+      tags = [{ key:'neutral', label:'不好判断', why:'颜色比较杂、明暗反差不大，没有哪一类特别突出 —— 这时候按你的耳朵来选声音更靠谱', score:0 }];
+    }
+    return tags;
+  }
+
+  /* ---------- 声音推荐（附理由，不锁定） ---------- */
+  function buildRecs(tags){
+    var out = [], seen = {};
+    function add(id, why){
+      if(seen[id] || out.length >= 5) return;
+      seen[id] = 1; out.push({ id:id, why:why });
+    }
+    tags.forEach(function(t){
+      if(t.key === 'water'){ add('waves','判断为水面 → 一层层推过来的浪'); add('river','水在流动 → 连续的溪水声'); }
+      if(t.key === 'night'){ add('crickets','判断为夜景 → 安静的虫鸣最像夜里'); add('wind','夜色里总得有一点风'); }
+      if(t.key === 'vegetation'){ add('birds','有绿色植被 → 用鸟叫把空间撑开'); add('wind-in-trees','叶子会响 → 林间风'); }
+      if(t.key === 'lights'){ add('campfire','暖色光点 → 炉火的噼啪声最贴'); add('wind-chimes','灯光和小物件 → 一点风铃当点缀'); }
+      if(t.key === 'sky'){ add('wind','开阔的天空 → 高处的风声'); add('birds','远景很空 → 远处的鸟叫'); }
+    });
+    if(out.length < 3){
+      add('wind','兜底底噪：不抢戏，什么画面都能配');
+      add('brown-noise','低频暖底噪，把整个画面稳住');
+      add('wind-chimes','偶尔一声，给画面留个呼吸');
+    }
+    return out.slice(0, 5);
+  }
+
+  /* ---------- 本地存储：只存缩小后的图 + 参数 ---------- */
+  function savePhoto(){
+    if(!photo) return;
+    try{
+      localStorage.setItem(PHOTO_KEY, JSON.stringify({
+        v:1,
+        url: photo.url,
+        params: photoParams,
+        tags: photo.tags,
+        rec: photo.rec,
+        applied: state.scene === 'photo'
+      }));
+    }catch(e){}
+  }
+  var saveTimer = null;
+  function savePhotoSoon(){ clearTimeout(saveTimer); saveTimer = setTimeout(savePhoto, 700); }
+
+  function loadSavedPhoto(){
+    var raw = null;
+    try{ raw = localStorage.getItem(PHOTO_KEY); }catch(e){ return; }
+    if(!raw) return;
+    var o = null;
+    try{ o = JSON.parse(raw); }catch(e){ return; }
+    if(!o || !o.url) return;
+
+    if(o.params){
+      ['block','levels','bright','contrast','sat','sharpen'].forEach(function(k){
+        if(typeof o.params[k] === 'number') photoParams[k] = o.params[k];
+      });
+    }
+    var img = new Image();
+    img.onload = function(){
+      photo = { img:img, url:o.url, tags:o.tags || null, rec:o.rec || null };
+      try{
+        if(!photo.tags || !photo.tags.length) photo.tags = analyzePhoto();
+        if(!photo.rec || !photo.rec.length) photo.rec = buildRecs(photo.tags);
+      }catch(e){ photo.tags = photo.tags || []; photo.rec = photo.rec || []; }
+
+      SCENES.photo = { name:'我的窗外', sounds: photo.rec.map(function(r){ return r.id; }), keepFire:true };
+      photoDirty = true;
+      buildChips();
+      syncParamUI();
+      updateModalState();
+
+      if(o.applied){
+        state.scene = 'photo';
+        SOUNDS.forEach(function(s){
+          state.tracks[s.id].on = SCENES.photo.sounds.indexOf(s.id) >= 0;
+        });
+        state.lamp = state.lamp;
+        syncChips(); syncSoundUI(); updateCounts(); updatePhTag();
+      }
+      photoDirty = true;
+    };
+    img.onerror = function(){ /* 存坏了就忽略，不影响页面 */ };
+    img.src = o.url;
+  }
+
+  /* ---------- 弹窗 ---------- */
+  var modal = $('#photoModal');
+  var dropZone = $('#dropZone');
+  var previewCanvas = $('#previewCanvas');
+  var previewCtx = previewCanvas.getContext('2d');
+
+  var PARAM_DEFS = [
+    { key:'block', label:'颗粒粗细', min:1, max:8, step:1,
+      hint:'数字越大，照片被切成越大的方块，越像老游戏；数字小就更接近原照片。' },
+    { key:'levels', label:'颜色数量', min:3, max:14, step:1,
+      hint:'每种颜色只保留几个档位。数字小 → 颜色更少、更像像素画；数字大 → 颜色更丰富。' },
+    { key:'bright', label:'明暗', min:-40, max:40, step:1,
+      hint:'整体调亮或调暗。往右更亮，像白天；往左更暗，像傍晚。' },
+    { key:'contrast', label:'对比度', min:-30, max:30, step:1,
+      hint:'明暗之间的差距。调大变硬朗（黑影更黑、亮处更亮），调小变柔和、有点灰。' },
+    { key:'sat', label:'颜色浓淡', min:-40, max:40, step:1,
+      hint:'颜色的鲜艳程度。往左接近黑白，往右颜色更浓。' },
+    { key:'sharpen', label:'清晰度', min:0, max:100, step:5,
+      hint:'让边缘更利落。调高照片更清楚，调太高会出现硬边和小黑点。' }
+  ];
+
+  function fmtParam(d, v){
+    if(d.key === 'block') return v + '×' + v;
+    if(d.key === 'levels') return v + ' 档';
+    return (v > 0 ? '+' : '') + v;
+  }
+
+  function buildParamUI(){
+    var box = $('#params');
+    PARAM_DEFS.forEach(function(d){
+      var row = document.createElement('div'); row.className = 'pm';
+      var top = document.createElement('div'); top.className = 'pmTop';
+      var nm = document.createElement('span'); nm.textContent = d.label;
+      var val = document.createElement('span'); val.className = 'pmVal';
+      top.appendChild(nm); top.appendChild(val);
+
+      var inp = document.createElement('input');
+      inp.type = 'range'; inp.min = d.min; inp.max = d.max; inp.step = d.step;
+      inp.setAttribute('aria-label', d.label);
+      inp.addEventListener('input', function(){
+        photoParams[d.key] = Number(inp.value);
+        val.textContent = fmtParam(d, photoParams[d.key]);
+        if(photo && state.scene === 'photo') photoDirty = true;
+        previewLater();
+        savePhotoSoon();
+      });
+
+      var hint = document.createElement('div'); hint.className = 'pmHint'; hint.textContent = d.hint;
+      row.appendChild(top); row.appendChild(inp); row.appendChild(hint);
+      box.appendChild(row);
+      d._inp = inp; d._val = val;
+    });
+  }
+
+  function syncParamUI(){
+    PARAM_DEFS.forEach(function(d){
+      d._inp.value = String(photoParams[d.key]);
+      d._val.textContent = fmtParam(d, photoParams[d.key]);
+      fillRange(d._inp);
+    });
+    var tn = $('#timeNote');
+    if(tn) tn.innerHTML = '当前时刻：<b>' + TIMES[state.time].name + '</b> —— 时刻会给照片重新上色（夜里是蓝色夜景，不是单纯调暗）。';
+  }
+
+  var pvQueued = false;
+  function previewLater(){
+    if(pvQueued) return;
+    pvQueued = true;
+    requestAnimationFrame(function(){ pvQueued = false; renderPreview(); });
+  }
+
+  function renderPreview(){
+    if(!photo) return;
+    if(photoDirty || !photoPainted) rebuildPhotoLayer();
+    previewCtx.imageSmoothingEnabled = false;
+    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    previewCtx.drawImage(photoLayer, 0, 0, OW, OH, 0, 0, previewCanvas.width, previewCanvas.height);
+  }
+
+  function showAnalysis(){
+    var box = $('#analysis');
+    if(!photo || !photo.tags || !photo.tags.length){
+      box.innerHTML = '<div class="anaEmpty">还没有照片。拖一张进来，我会按颜色和明暗猜一猜它像什么。</div>';
+      return;
+    }
+    var tagHtml = photo.tags.map(function(t){ return '<span class="tag">' + t.label + '</span>'; }).join('');
+    var ev = photo.tags.map(function(t){ return '<li>' + t.why + '</li>'; }).join('');
+    box.innerHTML =
+      '<div class="secH" style="margin-bottom:0">这张照片像什么（推断）</div>' +
+      '<div class="anaTags">' + tagHtml + '</div>' +
+      '<ul class="anaList">' + ev + '</ul>' +
+      '<div class="anaWarn">这是根据颜色和构图的猜测，不是真的认出了内容。' +
+      '照片只在这台电脑上处理，没有上传到任何服务器。</div>';
+  }
+
+  function showRecs(){
+    var box = $('#recs');
+    if(!photo || !photo.rec || !photo.rec.length){
+      box.innerHTML = '<div class="anaEmpty">有照片之后，这里会给出 3~5 条建议，并写清楚为什么。</div>';
+      return;
+    }
+    box.innerHTML = photo.rec.map(function(r){
+      var s = null;
+      for(var i=0;i<SOUNDS.length;i++){ if(SOUNDS[i].id === r.id){ s = SOUNDS[i]; break; } }
+      return '<div class="recRow"><div class="recName">' + (s ? s.name : r.id) + '</div>' +
+             '<div class="recWhy">' + r.why + '</div></div>';
+    }).join('') + '<div class="note" style="margin-top:8px">应用后会按这些打开，但你可以随时在「声音」里改回自己喜欢的组合。</div>';
+  }
+
+  function updateModalState(){
+    var has = !!photo;
+    dropZone.classList.toggle('has', has);
+    $('#applyBtn').disabled = !has;
+    $('#fileInfo').textContent = has ? '已在本地缓存 · 可随时重调' : '还没有照片';
+    if(has){ renderPreview(); }
+    showAnalysis(); showRecs();
+    syncParamUI();
+  }
+
+  function openModal(){
+    modal.hidden = false;
+    updateModalState();
+  }
+  function closeModal(){
+    modal.hidden = true;
+    if(photo) savePhoto();
+  }
+
+  function loadFile(file){
+    if(!file) return;
+    if(file.type && file.type.indexOf('image/') !== 0){ toast('这个不是图片文件'); return; }
+    if(file.size > 30*1024*1024){ toast('照片超过 30MB，换一张小一点的吧'); return; }
+    var fr = new FileReader();
+    fr.onload = function(){
+      var img = new Image();
+      img.onload = function(){
+        var c = document.createElement('canvas');
+        c.width = 696; c.height = 600;
+        var cx = c.getContext('2d');
+        var s = Math.max(696/img.width, 600/img.height);
+        var w = img.width*s, h = img.height*s;
+        cx.imageSmoothingEnabled = true;
+        cx.imageSmoothingQuality = 'high';
+        cx.drawImage(img, (696-w)/2, (600-h)/2, w, h);
+
+        photo = {
+          img: c,
+          url: c.toDataURL('image/jpeg', .82),   // 只存缩小版，不存原图
+          tags: null, rec: null
+        };
+        photo.tags = analyzePhoto();
+        photo.rec = buildRecs(photo.tags);
+        SCENES.photo = { name:'我的窗外', sounds: photo.rec.map(function(r){ return r.id; }), keepFire:true };
+        photoDirty = true;
+        buildChips();
+        updateModalState();
+        $('#fileInfo').textContent = img.width + '×' + img.height + ' · ' + Math.round(file.size/1024) + 'KB（已缩小后存本地）';
+        savePhoto();
+        if(state.scene === 'photo') toast('照片已换，窗外立刻更新');
+      };
+      img.onerror = function(){ toast('这张图片读不出来，换一张试试'); };
+      img.src = fr.result;
+    };
+    fr.readAsDataURL(file);
+  }
+
+  function applyPhoto(){
+    if(!photo) return;
+    var keep = $('#keepSounds').checked;
+    SCENES.photo = { name:'我的窗外', sounds: photo.rec.map(function(r){ return r.id; }), keepFire:true };
+    snapshotOutside(); flashVeil();
+    state.scene = 'photo';
+    if(!keep){
+      SOUNDS.forEach(function(s){
+        state.tracks[s.id].on = SCENES.photo.sounds.indexOf(s.id) >= 0;
+      });
+    }
+    photoDirty = true;
+    closeModal();
+    syncChips(); syncSoundUI(); updateCounts(); updatePhTag();
+    savePhoto();
+    toast(keep
+      ? '已应用为场景 · 窗外换成了你的照片，声音保持原样'
+      : '已应用为场景 · 并按推荐选了 ' + SCENES.photo.sounds.length + ' 条声音（随时能改）');
+  }
+
+  var toastTimer = null;
+  function toast(msg){
+    var el = $('#toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 3400);
+  }
+
+  function updatePhTag(){
+    var el = document.querySelector('.phTag');
+    if(!el) return;
+    el.textContent = (state.scene === 'photo' && photo)
+      ? '窗外：你的照片 · 屋里仍是代码绘制的房间'
+      : '这是占位场景 · 代码绘制，窗外画面等你换成照片';
+  }
+
+  // 弹窗事件
+  $('#importBtn').addEventListener('click', openModal);
+  $('#modalClose').addEventListener('click', closeModal);
+  $('#cancelBtn').addEventListener('click', closeModal);
+  $('#modalBg').addEventListener('click', closeModal);
+  $('#applyBtn').addEventListener('click', applyPhoto);
+
+  $('#pickBtn').addEventListener('click', function(){ $('#fileInput').click(); });
+  $('#pickInline').addEventListener('click', function(){ $('#fileInput').click(); });
+  $('#fileInput').addEventListener('change', function(e){
+    if(e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+    e.target.value = '';
+  });
+
+  // 粘贴
+  $('#pasteBtn').addEventListener('click', function(){
+    toast('按 Ctrl+V 就能把剪贴板里的图片贴进来');
+  });
+  document.addEventListener('paste', function(e){
+    if(modal.hidden) return;
+    var items = (e.clipboardData && e.clipboardData.items) || [];
+    for(var i=0;i<items.length;i++){
+      if(items[i].type && items[i].type.indexOf('image') === 0){
+        var f = items[i].getAsFile();
+        if(f){ loadFile(f); e.preventDefault(); return; }
+      }
+    }
+  });
+
+  // 拖拽
+  ['dragenter','dragover'].forEach(function(ev){
+    modal.addEventListener(ev, function(e){
+      e.preventDefault();
+      dropZone.classList.add('over');
+    });
+  });
+  ['dragleave','dragend'].forEach(function(ev){
+    modal.addEventListener(ev, function(e){
+      e.preventDefault();
+      if(e.target === modal || e.target === dropZone) dropZone.classList.remove('over');
+    });
+  });
+  modal.addEventListener('drop', function(e){
+    e.preventDefault();
+    dropZone.classList.remove('over');
+    var files = e.dataTransfer && e.dataTransfer.files;
+    if(files && files.length) loadFile(files[0]);
+  });
+  window.addEventListener('dragover', function(e){ e.preventDefault(); });
+  window.addEventListener('drop', function(e){ e.preventDefault(); });
+
+  /* =========================================================
+     7. 启动
+     ========================================================= */
+  buildChips();
+  buildSoundUI();
+  buildParamUI();
+
+  // 初始：雨夜 + 夜 + 台灯亮，但绝不自动出声
+  (function init(){
+    var sc = SCENES[state.scene];
+    SOUNDS.forEach(function(s){ state.tracks[s.id].on = sc.sounds.indexOf(s.id) >= 0; });
+    state.lamp = true;
+    state.fire = false;
+    syncChips(); syncSoundUI(); updateCounts(); updatePhTag();
+  })();
+
+  // 刷新后恢复上次的照片与参数（只读本地缓存，不联网）
+  loadSavedPhoto();
+  syncParamUI();
+  Array.prototype.forEach.call(document.querySelectorAll('input[type=range]'), fillRange);
+
+  requestAnimationFrame(loop);
+
+  // 供自测/调试用
+  window.__cabin = {
+    state: state, SOUNDS: SOUNDS, els: els, catState: catState,
+    photoParams: photoParams,
+    togglePlayback: togglePlayback,
+    handleVisibility: handleVisibility,
+    noiseGain: function(id){
+      return (noiseNodes[id] && noiseNodes[id].gn) ? noiseNodes[id].gn.gain.value : 0;
+    },
+    getPhoto: function(){ return photo; }
+  };
+})();
+</script>
+</body>
+</html>
